@@ -146,7 +146,7 @@ const templateCopy = {
     quoteTitle: "Quote",
     quoteText:
       "Love is the quiet feeling of choosing the same person, again and again, in every season.",
-    quoteSource: "Atelier Mempelai",
+    quoteSource: "Atelier Amora",
     profilesTitle: "Tentang Kami",
     profilesIntro:
       "Sedikit pengantar tentang dua hati yang bertumbuh bersama sampai akhirnya siap menyambut hari ini.",
@@ -183,7 +183,7 @@ const templateCopy = {
       `${coupleDisplay} memilih perayaan yang ringkas, jelas, dan tetap hangat bagi orang-orang terdekat mereka.`,
     quoteTitle: "Quote",
     quoteText: "The best kind of love is steady, intentional, and quietly certain.",
-    quoteSource: "Atelier Mempelai",
+    quoteSource: "Atelier Amora",
     profilesTitle: "The Couple",
     profilesIntro:
       "Template ini merangkum inti cerita kami secara singkat, jujur, dan mudah diikuti dari awal sampai akhir.",

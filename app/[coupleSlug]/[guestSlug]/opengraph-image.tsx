@@ -69,7 +69,7 @@ export default async function InvitationOpenGraphImage(
             {subtitle}
           </div>
         </div>
-        <div style={{ fontSize: 24, color: "#d9bb86" }}>Atelier Mempelai</div>
+        <div style={{ fontSize: 24, color: "#d9bb86" }}>Atelier Amora</div>
       </div>
     ),
     size,

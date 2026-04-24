@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PRICING_FAQ, PRICING_PLANS } from "@/lib/constants/pricing";
 
 export const metadata: Metadata = {
-  title: "Harga | Atelier Mempelai",
+  title: "Harga | Atelier Amora",
   description:
     "Bandingkan paket Starter, Signature, dan Studio untuk undangan digital personal dengan dashboard ringan, RSVP, dan link tamu unik.",
 };
@@ -32,7 +32,7 @@ export default function PricingPage() {
               key={plan.tier}
               className={`rounded-[2.4rem] p-6 ${
                 plan.featured
-                  ? "border border-[rgba(107,117,86,0.16)] bg-[linear-gradient(160deg,#fffefb,#fbead6_56%,#f0c4cb_135%)] shadow-[var(--shadow-float)]"
+                  ? "border border-[rgba(38,72,77,0.2)] bg-[linear-gradient(160deg,#fffefb,#e7e1d8_56%,#cfadc0_135%)] shadow-[var(--shadow-float)]"
                   : "surface-card"
               }`}
             >
@@ -41,7 +41,7 @@ export default function PricingPage() {
                   {plan.name}
                 </p>
                 {plan.featured ? (
-                  <span className="rounded-full bg-[rgba(107,117,86,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--color-secondary)]">
+                  <span className="rounded-full bg-[rgba(38,72,77,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--color-secondary)]">
                     Recommended
                   </span>
                 ) : null}

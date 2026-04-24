@@ -1,4 +1,4 @@
-# Atelier Mempelai
+# Atelier Amora
 
 MVP web app undangan digital berbasis Next.js 16, TypeScript, Tailwind v4, Auth.js, Prisma, dan PostgreSQL.
 
