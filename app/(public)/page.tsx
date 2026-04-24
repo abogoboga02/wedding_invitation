@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
+import { createClient as createSupabaseClient } from "@/utils/supabase/server";
 
 import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
@@ -82,7 +83,12 @@ const heroPetals = [
   { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
 ];
 
-export default function MarketingPage() {
+export default async function MarketingPage() {
+  const supabase = await createSupabaseClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+
   return (
     <main className="editorial-shell flex-1">
       <section className="relative isolate overflow-hidden">
@@ -159,6 +165,9 @@ export default function MarketingPage() {
                 <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
                 Tool Undangan Digital Personal
               </div>
+              <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+                Supabase session: {supabaseUser ? `aktif sebagai ${supabaseUser.email}` : "belum login"}
+              </p>
               <h1 className="mt-7 font-serif-display text-balance text-[3.5rem] leading-[0.88] text-[var(--color-text-primary)] sm:text-[4.9rem] lg:text-[6.4rem]">
                 Undangan yang terasa lebih intim, lebih premium, dan lebih hidup sejak link pertama dibuka.
               </h1>

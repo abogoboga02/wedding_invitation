@@ -10,6 +10,8 @@ Salin ke `.env`:
 NEXTAUTH_URL=http://localhost:3000
 AUTH_SECRET=isi-secret-random
 DATABASE_URL=isi-connection-string-supabase
+NEXT_PUBLIC_SUPABASE_URL=https://qsgnarjotqcjrbphxqtm.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 ```
 
 ### 1) `NEXTAUTH_URL`
@@ -35,6 +37,14 @@ DATABASE_URL=isi-connection-string-supabase
   ```env
   DATABASE_URL=postgresql://postgres.<project-ref>:<db-password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
   ```
+
+### 4) `NEXT_PUBLIC_SUPABASE_URL`
+- **Isi dengan:** Project URL Supabase kamu.
+- **Sumber:** Supabase Dashboard → **Settings** → **API** → **Project URL**.
+
+### 5) `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- **Isi dengan:** publishable/anon key dari Supabase.
+- **Sumber:** Supabase Dashboard → **Settings** → **API** → **Project API keys**.
 
 ---
 
