@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Atelier Mempelai";
+export const alt = "Atelier Amora";
 export const size = {
   width: 1200,
   height: 630,
@@ -33,7 +33,7 @@ export default function OpenGraphImage() {
             color: "#6b7556",
           }}
         >
-          Atelier Mempelai
+          Atelier Amora
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 22, maxWidth: "860px" }}>
           <div
