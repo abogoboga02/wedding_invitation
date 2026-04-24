@@ -19,12 +19,12 @@ const cormorantGaramond = Cormorant_Garamond({
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Atelier Mempelai",
-    template: "%s | Atelier Mempelai",
+    default: "Atelier Amora",
+    template: "%s | Atelier Amora",
   },
   description:
     "MVP web app undangan digital personal dengan link tamu unik, dashboard pengantin, dan template premium.",
-  applicationName: "Atelier Mempelai",
+  applicationName: "Atelier Amora",
   keywords: [
     "undangan digital",
     "wedding invitation",
@@ -39,22 +39,22 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     url: siteUrl,
-    title: "Atelier Mempelai",
+    title: "Atelier Amora",
     description:
       "Undangan digital personal dengan link tamu unik, dashboard ringan, dan template premium.",
-    siteName: "Atelier Mempelai",
+    siteName: "Atelier Amora",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Atelier Mempelai",
+        alt: "Atelier Amora",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Atelier Mempelai",
+    title: "Atelier Amora",
     description:
       "Undangan digital personal dengan link tamu unik, dashboard ringan, dan template premium.",
     images: ["/opengraph-image"],
