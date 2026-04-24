@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 
+import { getSiteMetadataBase, getSiteUrl } from "@/lib/utils/site-url";
+
 import "./globals.css";
 
-const siteUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+const siteUrl = getSiteUrl();
+const siteMetadataBase = getSiteMetadataBase();
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -17,7 +20,7 @@ const cormorantGaramond = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: siteMetadataBase,
   title: {
     default: "Atelier Amora",
     template: "%s | Atelier Amora",
@@ -72,7 +75,9 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${plusJakartaSans.variable} ${cormorantGaramond.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   getMusicPresetById,
@@ -19,20 +19,22 @@ export function MusicPresetPicker({
   defaultPresetId,
 }: MusicPresetPickerProps) {
   const [selectedMood, setSelectedMood] = useState<MusicPresetMood>(defaultMood);
-  const [selectedPresetId, setSelectedPresetId] = useState(defaultPresetId);
+  const [selectedPresetId, setSelectedPresetId] = useState(() => {
+    const preset = getMusicPresetById(defaultPresetId);
 
-  useEffect(() => {
+    return preset?.mood === defaultMood ? defaultPresetId : "";
+  });
+  const visiblePresets = getMusicPresetsByMood(selectedMood);
+
+  function handleMoodSelect(mood: MusicPresetMood) {
+    setSelectedMood(mood);
+
     const selectedPreset = getMusicPresetById(selectedPresetId);
 
-    if (selectedPreset && selectedPreset.mood !== selectedMood) {
+    if (selectedPreset && selectedPreset.mood !== mood) {
       setSelectedPresetId("");
     }
-  }, [selectedMood, selectedPresetId]);
-
-  const visiblePresets = useMemo(
-    () => getMusicPresetsByMood(selectedMood),
-    [selectedMood],
-  );
+  }
 
   return (
     <section className="space-y-4 rounded-[2rem] border border-[var(--color-border)] bg-[var(--color-surface-alt)]/70 p-5">
@@ -51,7 +53,7 @@ export function MusicPresetPicker({
           <button
             key={mood}
             type="button"
-            onClick={() => setSelectedMood(mood)}
+            onClick={() => handleMoodSelect(mood)}
             className={`rounded-full px-4 py-2 text-xs font-semibold ${
               selectedMood === mood
                 ? "bg-[var(--color-primary-strong)] text-white shadow-[var(--shadow-button)]"

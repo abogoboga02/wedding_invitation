@@ -3,8 +3,11 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
 
+import { syncNormalizedAuthEnvUrl } from "@/lib/auth/auth-url";
 import { loginSchema } from "@/features/auth/auth.schema";
 import { prisma } from "@/lib/db/prisma";
+
+syncNormalizedAuthEnvUrl();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -14,9 +17,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   providers: [
     Credentials({
-      name: "Email & Password",
+      name: "Email / Username & Password",
       credentials: {
-        email: { label: "Email", type: "email" },
+        identifier: { label: "Email atau Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(rawCredentials) {
@@ -26,8 +29,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: parsedCredentials.data.email },
+        const identifier = parsedCredentials.data.identifier.trim();
+        const normalizedIdentifier = identifier.toLowerCase();
+
+        const user = await prisma.user.findFirst({
+          where: identifier.includes("@")
+            ? { email: normalizedIdentifier }
+            : {
+                OR: [
+                  { email: normalizedIdentifier },
+                  {
+                    role: "ADMIN",
+                    name: {
+                      equals: identifier,
+                      mode: "insensitive",
+                    },
+                  },
+                ],
+              },
         });
 
         if (!user?.passwordHash) {

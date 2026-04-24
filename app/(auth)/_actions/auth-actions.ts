@@ -23,31 +23,31 @@ export async function loginAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const parsedForm = loginSchema.safeParse({
-    email: formData.get("email"),
+    identifier: formData.get("identifier"),
     password: formData.get("password"),
   });
 
   if (!parsedForm.success) {
     const errors = parsedForm.error.flatten().fieldErrors;
     return {
-      error: errors.email?.[0] ?? errors.password?.[0] ?? "Data login tidak valid.",
+      error: errors.identifier?.[0] ?? errors.password?.[0] ?? "Data login tidak valid.",
     };
   }
 
   try {
     await signIn("credentials", {
-      email: parsedForm.data.email,
+      identifier: parsedForm.data.identifier,
       password: parsedForm.data.password,
       redirectTo: "/dashboard",
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return {
-        error:
-          error.type === "CredentialsSignin"
-            ? "Email atau password tidak cocok."
-            : "Login belum berhasil. Coba lagi.",
-      };
+        return {
+          error:
+            error.type === "CredentialsSignin"
+              ? "Email/username atau password tidak cocok."
+              : "Login belum berhasil. Coba lagi.",
+        };
     }
 
     throw error;
@@ -101,7 +101,7 @@ export async function registerAction(
 
   try {
     await signIn("credentials", {
-      email: parsedForm.data.email,
+      identifier: parsedForm.data.email,
       password: parsedForm.data.password,
       redirectTo: "/dashboard",
     });

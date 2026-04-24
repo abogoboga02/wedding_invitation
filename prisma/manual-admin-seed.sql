@@ -7,8 +7,9 @@
 --   /admin
 --
 -- Default admin baru:
---   email    : admin@ateliermempelai.local
---   password : Admin12345!
+--   username : admin
+--   email    : admin@atelieramora.local
+--   password : admin
 --
 -- Password hash di bawah dibuat dengan bcrypt(12).
 -- Ganti password ini setelah local setup selesai jika perlu.
@@ -19,9 +20,10 @@
 -- ---------------------------------------------------------
 UPDATE "User"
 SET
+  "name" = 'admin',
   "role" = 'ADMIN',
   "updatedAt" = CURRENT_TIMESTAMP
-WHERE "email" = 'admin@wedding.local';
+WHERE "email" = 'admin@atelieramora.local';
 
 -- Ganti email di atas sesuai akun yang sudah ada.
 
@@ -39,9 +41,9 @@ INSERT INTO "User" (
 )
 VALUES (
   'usr_admin_local_001',
-  'Admin Local',
-  'admin@ateliermempelai.local',
-  '$2b$12$fJfRgT9/HQRuX3NqYFd1ROlcbcVNVTuzX5vD6aT2Rx4JT/J968gB.',
+  'admin',
+  'admin@atelieramora.local',
+  '$2b$12$cw./7fhR8JPMOJLrSrOJeuAKGkSH8b4fxUwchkMeSKiLxrTgEmBpG',
   'ADMIN',
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP

@@ -19,6 +19,7 @@ MVP web app undangan digital berbasis Next.js 16, TypeScript, Tailwind v4, Auth.
 
 1. Salin `.env.example` menjadi `.env`.
 2. Isi `NEXTAUTH_URL`, `AUTH_SECRET`, dan `DATABASE_URL`.
+   Nilai `NEXTAUTH_URL` wajib memakai protokol lengkap, mis. `http://localhost:3000` atau `https://your-app.vercel.app`.
 3. Jalankan:
 
 ```bash

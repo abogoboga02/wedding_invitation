@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 type ScrollRevealProps = {
   children: React.ReactNode;
@@ -8,11 +8,8 @@ type ScrollRevealProps = {
   delay?: number;
 };
 
-type RevealPhase = "idle" | "hidden" | "visible";
-
 export function ScrollReveal({ children, className, delay = 0 }: ScrollRevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [phase, setPhase] = useState<RevealPhase>("idle");
 
   useEffect(() => {
     const element = ref.current;
@@ -22,9 +19,18 @@ export function ScrollReveal({ children, className, delay = 0 }: ScrollRevealPro
     }
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const setVisible = () => {
+      element.classList.remove("reveal-hidden");
+      element.classList.add("reveal-visible");
+    };
+
+    const setHidden = () => {
+      element.classList.remove("reveal-visible");
+      element.classList.add("reveal-hidden");
+    };
 
     if (mediaQuery.matches) {
-      setPhase("visible");
+      setVisible();
       return;
     }
 
@@ -33,17 +39,17 @@ export function ScrollReveal({ children, className, delay = 0 }: ScrollRevealPro
     const isInitiallyVisible = rect.top < viewportHeight * 0.92 && rect.bottom > 0;
 
     if (isInitiallyVisible) {
-      setPhase("visible");
+      setVisible();
       return;
     }
 
-    setPhase("hidden");
+    setHidden();
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            setPhase("visible");
+            setVisible();
             observer.disconnect();
             break;
           }
@@ -63,7 +69,7 @@ export function ScrollReveal({ children, className, delay = 0 }: ScrollRevealPro
   return (
     <div
       ref={ref}
-      className={`${phase === "hidden" ? "reveal-hidden" : ""} ${phase === "visible" ? "reveal-visible" : ""} ${className ?? ""}`}
+      className={className ?? ""}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}

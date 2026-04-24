@@ -16,7 +16,9 @@ type AuthFormProps = {
   mode: "login" | "register";
 };
 
-type ClientErrors = Partial<Record<"name" | "email" | "password" | "confirmPassword", string>>;
+type ClientErrors = Partial<
+  Record<"name" | "identifier" | "email" | "password" | "confirmPassword", string>
+>;
 
 const initialState: AuthActionState = {};
 
@@ -74,7 +76,7 @@ export function AuthForm({ action, mode }: AuthFormProps) {
           }
         } else {
           const parsed = loginSchema.safeParse({
-            email: formData.get("email"),
+            identifier: formData.get("identifier"),
             password: formData.get("password"),
           });
 
@@ -82,7 +84,7 @@ export function AuthForm({ action, mode }: AuthFormProps) {
             event.preventDefault();
             const errors = parsed.error.flatten().fieldErrors;
             setClientErrors({
-              email: errors.email?.[0],
+              identifier: errors.identifier?.[0],
               password: errors.password?.[0],
             });
             return;
@@ -106,17 +108,34 @@ export function AuthForm({ action, mode }: AuthFormProps) {
         </label>
       ) : null}
 
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">Email</span>
-        <input
-          name="email"
-          type="email"
-          required
-          className={baseInputClass(Boolean(clientErrors.email))}
-          placeholder="nama@email.com"
-        />
-        <FieldError message={clientErrors.email} />
-      </label>
+      {isRegister ? (
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">Email</span>
+          <input
+            name="email"
+            type="email"
+            required
+            className={baseInputClass(Boolean(clientErrors.email))}
+            placeholder="nama@email.com"
+          />
+          <FieldError message={clientErrors.email} />
+        </label>
+      ) : (
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+            Email atau Username
+          </span>
+          <input
+            name="identifier"
+            type="text"
+            required
+            autoCapitalize="none"
+            className={baseInputClass(Boolean(clientErrors.identifier))}
+            placeholder="admin atau nama@email.com"
+          />
+          <FieldError message={clientErrors.identifier} />
+        </label>
+      )}
 
       <label className="block space-y-2">
         <span className="text-sm font-medium text-[var(--color-text-primary)]">Password</span>
@@ -124,9 +143,9 @@ export function AuthForm({ action, mode }: AuthFormProps) {
           name="password"
           type="password"
           required
-          minLength={8}
+          minLength={isRegister ? 8 : 1}
           className={baseInputClass(Boolean(clientErrors.password))}
-          placeholder="Minimal 8 karakter"
+          placeholder={isRegister ? "Minimal 8 karakter" : "Masukkan password Anda"}
         />
         <FieldError message={clientErrors.password} />
       </label>

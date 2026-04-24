@@ -91,7 +91,7 @@ export default async function AdminRsvpPage() {
                     ) : null}
                     {rsvp.note ? (
                       <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                        "{rsvp.note}"
+                        &ldquo;{rsvp.note}&rdquo;
                       </p>
                     ) : null}
                   </div>

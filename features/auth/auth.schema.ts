@@ -1,12 +1,19 @@
 import { z } from "zod";
 
+const registerPasswordSchema = z.string().min(8, "Password minimal 8 karakter.");
+
 export const loginSchema = z.object({
-  email: z.email("Masukkan email yang valid.").transform((value) => value.toLowerCase()),
-  password: z.string().min(8, "Password minimal 8 karakter."),
+  identifier: z
+    .string()
+    .trim()
+    .min(1, "Masukkan email atau username."),
+  password: z.string().min(1, "Password wajib diisi."),
 });
 
-export const registerSchema = loginSchema.extend({
+export const registerSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter.").max(80, "Nama terlalu panjang."),
+  email: z.email("Masukkan email yang valid.").transform((value) => value.toLowerCase()),
+  password: registerPasswordSchema,
 });
 
 export const registerClientSchema = registerSchema
