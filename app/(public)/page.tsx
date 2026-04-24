@@ -4,10 +4,12 @@ import Link from "next/link";
 
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
+import { createClient as createSupabaseClient } from "@/utils/supabase/server";
 
 import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
 import { SectionIntro } from "./_components/SectionIntro";
+import { AtelierAmoraLogo } from "./_components/AtelierAmoraLogo";
 
 const navigationLeft = [
   { href: "#template", label: "Template" },
@@ -81,16 +83,21 @@ const heroPetals = [
   { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
 ];
 
-export default function MarketingPage() {
+export default async function MarketingPage() {
+  const supabase = await createSupabaseClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+
   return (
     <main className="editorial-shell flex-1">
       <section className="relative isolate overflow-hidden">
         <div className="hero-soft-layer -z-10" />
-        <div className="absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,rgba(240,196,203,0.52),transparent_62%)]" />
-        <div className="hero-orb right-[-5rem] top-24 -z-10 h-52 w-52 bg-[rgba(229,188,169,0.18)] blur-3xl" />
-        <div className="hero-orb left-[-4rem] top-52 -z-10 h-44 w-44 bg-[rgba(240,196,203,0.18)] blur-3xl" />
-        <div className="hero-orb left-[18%] top-[7rem] -z-10 h-36 w-36 bg-[rgba(251,234,214,0.52)]" />
-        <div className="hero-orb right-[12%] top-[12rem] -z-10 h-28 w-28 bg-[rgba(200,125,135,0.12)]" />
+        <div className="absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,rgba(156,109,130,0.38),transparent_62%)]" />
+        <div className="hero-orb right-[-5rem] top-24 -z-10 h-52 w-52 bg-[rgba(198,142,90,0.17)] blur-3xl" />
+        <div className="hero-orb left-[-4rem] top-52 -z-10 h-44 w-44 bg-[rgba(156,109,130,0.16)] blur-3xl" />
+        <div className="hero-orb left-[18%] top-[7rem] -z-10 h-36 w-36 bg-[rgba(231,225,216,0.55)]" />
+        <div className="hero-orb right-[12%] top-[12rem] -z-10 h-28 w-28 bg-[rgba(38,72,77,0.12)]" />
         <div className="petal-field" aria-hidden="true">
           {heroPetals.map((petal, index) => (
             <span
@@ -126,9 +133,7 @@ export default function MarketingPage() {
               </div>
 
               <div className="justify-self-center text-center">
-                <p className="font-serif-display text-xl uppercase tracking-[0.18em] text-[var(--color-secondary)] sm:text-2xl">
-                  Atelier Mempelai
-                </p>
+                <AtelierAmoraLogo compact />
               </div>
 
               <div className="hidden items-center justify-end gap-4 md:flex">
@@ -160,6 +165,9 @@ export default function MarketingPage() {
                 <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
                 Tool Undangan Digital Personal
               </div>
+              <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+                Supabase session: {supabaseUser ? `aktif sebagai ${supabaseUser.email}` : "belum login"}
+              </p>
               <h1 className="mt-7 font-serif-display text-balance text-[3.5rem] leading-[0.88] text-[var(--color-text-primary)] sm:text-[4.9rem] lg:text-[6.4rem]">
                 Undangan yang terasa lebih intim, lebih premium, dan lebih hidup sejak link pertama dibuka.
               </h1>
@@ -199,7 +207,7 @@ export default function MarketingPage() {
 
             <div className="mt-12 grid gap-5 lg:mt-16 lg:grid-cols-[1.62fr_1fr]">
               <ScrollReveal className="surface-panel overflow-hidden rounded-[var(--radius-panel)] p-5 sm:p-7" delay={80}>
-                <div className="rounded-[2rem] bg-[linear-gradient(160deg,#fffdfa,#fbead6_52%,#f0c4cb_110%)] p-5 sm:p-7">
+                <div className="rounded-[2rem] bg-[linear-gradient(160deg,#f8f3ee,#e7e1d8_52%,#cfadc0_114%)] p-5 sm:p-7">
                   <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] text-[var(--color-secondary)]">
                     <span>Preview Halaman Tamu</span>
                     <span>Live Personal Route</span>
@@ -279,7 +287,7 @@ export default function MarketingPage() {
                 </ScrollReveal>
 
                 <ScrollReveal
-                  className="rounded-[var(--radius-card)] border border-[rgba(107,117,86,0.12)] bg-[rgba(107,117,86,0.08)] p-6"
+                  className="rounded-[var(--radius-card)] border border-[rgba(38,72,77,0.2)] bg-[rgba(38,72,77,0.08)] p-6"
                   delay={220}
                 >
                   <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
@@ -318,10 +326,10 @@ export default function MarketingPage() {
               <div
                 className={`rounded-[1.9rem] p-6 ${
                   template.id === "ELEGANT_LUXURY"
-                    ? "bg-[linear-gradient(160deg,#181315,#2b2324_55%,#5a4231)] text-[#f7e4c9]"
+                    ? "bg-[linear-gradient(160deg,#1b131c,#2f1e2e_55%,#6b3f63)] text-[#f2e6d8]"
                     : template.id === "KOREAN_SOFT"
-                      ? "bg-[linear-gradient(160deg,#fffaf7,#fbead6_55%,#f0c4cb)] text-[#6d5358]"
-                      : "bg-[linear-gradient(160deg,#ffffff,#f8f2ee_58%,#e5bca9)] text-[#2a2425]"
+                      ? "bg-[linear-gradient(160deg,#f8f5f1,#e7e1d8_55%,#cfadc0)] text-[#5d4453]"
+                      : "bg-[linear-gradient(160deg,#ffffff,#f3ede7_58%,#d3af8c)] text-[#2a2425]"
                 }`}
               >
                 <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] opacity-75">
@@ -456,7 +464,7 @@ export default function MarketingPage() {
               key={plan.name}
               className={`rounded-[2.3rem] p-6 ${
                 plan.featured
-                  ? "border border-[rgba(107,117,86,0.16)] bg-[linear-gradient(160deg,#fffefb,#fbead6_60%,#f0c4cb_135%)] shadow-[var(--shadow-float)]"
+                  ? "border border-[rgba(38,72,77,0.2)] bg-[linear-gradient(160deg,#fffefb,#e7e1d8_60%,#cfadc0_135%)] shadow-[var(--shadow-float)]"
                   : "surface-card"
               }`}
               delay={index * 90}
@@ -533,9 +541,7 @@ export default function MarketingPage() {
       <footer className="border-t border-[var(--color-border)] bg-white/56">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
           <div>
-            <p className="font-serif-display text-2xl uppercase tracking-[0.16em] text-[var(--color-secondary)]">
-              Atelier Mempelai
-            </p>
+            <AtelierAmoraLogo className="w-fit" />
             <p className="mt-3 max-w-md text-sm leading-7 text-[var(--color-text-secondary)]">
               Tool undangan digital personal untuk pasangan yang ingin pengalaman tamu terasa
               lebih hangat, rapi, dan premium sejak link pertama dibuka.
