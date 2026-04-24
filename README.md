@@ -1,4 +1,4 @@
-# Atelier Mempelai
+# Atelier Amora
 
 MVP web app undangan digital berbasis Next.js 16, TypeScript, Tailwind v4, Auth.js, Prisma, dan PostgreSQL.
 
@@ -18,7 +18,7 @@ MVP web app undangan digital berbasis Next.js 16, TypeScript, Tailwind v4, Auth.
 ## Setup Lokal
 
 1. Salin `.env.example` menjadi `.env`.
-2. Isi `DATABASE_URL` dan `AUTH_SECRET`.
+2. Isi `NEXTAUTH_URL`, `AUTH_SECRET`, dan `DATABASE_URL`.
 3. Jalankan:
 
 ```bash
@@ -43,3 +43,4 @@ npm run dev
 - Prisma schema memakai PostgreSQL sebagai default.
 - Undangan publik hanya tampil jika status sudah `PUBLISHED`.
 - Deliverable dokumen produk/arsitektur/checklist ada di folder `docs/`.
+- Jika pakai Supabase, isi variabel environment mengikuti panduan `docs/supabase-setup.md`.

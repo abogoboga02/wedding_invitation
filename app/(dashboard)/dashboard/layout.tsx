@@ -18,13 +18,13 @@ export default async function DashboardLayout({
   const user = await requireClientUser();
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#fffaf6,#ffffff)]">
+    <main className="min-h-screen bg-[linear-gradient(180deg,#f3efea,#ffffff)]">
       <div className="mx-auto max-w-[92rem] px-4 py-6 sm:px-6 lg:px-8">
         <header className="surface-panel mb-5 rounded-[2.25rem] px-5 py-5 sm:px-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="font-serif-display text-3xl uppercase tracking-[0.16em] text-[var(--color-rose-dark)]">
-                Atelier Mempelai
+                Atelier Amora
               </p>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 Halo, {user.name ?? "Pengantin"}. Semua alur penting undangan Anda ada di sini.
