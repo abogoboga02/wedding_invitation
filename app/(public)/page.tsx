@@ -1,10 +1,7 @@
-import type { CSSProperties } from "react";
-
 import Link from "next/link";
 
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
-import { createClient as createSupabaseClient } from "@/utils/supabase/server";
 
 import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
@@ -14,64 +11,17 @@ import { TemplateShowcaseCard } from "./_components/TemplateShowcaseCard";
 
 const navigationLeft = [
   { href: "#template", label: "Template" },
-  { href: "#why-us", label: "Keunggulan" },
-];
-
-const navigationRight = [
-  { href: "#flow", label: "Cara Kerja" },
   { href: "#pricing", label: "Harga" },
 ];
 
-const whyChooseUs = [
-  {
-    title: "Personal link yang terasa intim",
-    description:
-      "Setiap tamu menerima halaman dengan sapaan yang relevan, sehingga undangan terasa lebih personal sejak pertama dibuka.",
-  },
-  {
-    title: "Dashboard ringan untuk pasangan sibuk",
-    description:
-      "Isi data inti, unggah foto, atur lagu, lalu preview dalam alur yang pendek dan jelas tanpa panel yang berlebihan.",
-  },
-  {
-    title: "Preview dan halaman publik selalu sinkron",
-    description:
-      "Renderer yang sama dipakai di dashboard dan link tamu agar yang Anda lihat saat preview sama dengan yang diterima tamu.",
-  },
-];
-
-const flowSteps = [
-  {
-    step: "01",
-    title: "Pilih visual yang paling mewakili suasana hari Anda",
-    description:
-      "Mulai dari tiga template yang siap dipakai, lalu ganti kapan saja tanpa kehilangan data undangan.",
-  },
-  {
-    step: "02",
-    title: "Isi detail acara, unggah foto, dan atur musik pembuka",
-    description:
-      "Sistem menjaga form tetap ringkas agar pasangan bisa fokus pada konten yang benar-benar penting.",
-  },
-  {
-    step: "03",
-    title: "Import daftar tamu lalu hasilkan link personal otomatis",
-    description:
-      "Setiap tamu mendapat URL unik dengan slug sendiri untuk pengalaman undangan yang lebih hangat dan relevan.",
-  },
-  {
-    step: "04",
-    title: "Kirim dan pantau RSVP, open rate, dan interaksi tamu",
-    description:
-      "Begitu undangan dipublikasikan, Anda bisa melihat respons tamu dan performa undangan dari satu dashboard.",
-  },
+const navigationRight = [
+  { href: "#cta", label: "Mulai" },
 ];
 
 const footerLinks = [
   { href: "#template", label: "Template" },
-  { href: "#why-us", label: "Keunggulan" },
-  { href: "#flow", label: "Cara Kerja" },
   { href: "#pricing", label: "Harga" },
+  { href: "#cta", label: "Mulai" },
   { href: "/login", label: "Masuk" },
 ];
 
@@ -95,71 +45,42 @@ export default async function MarketingPage() {
 
   return (
     <main className="editorial-shell flex-1">
-      <section className="relative isolate overflow-hidden">
-        <div className="hero-soft-layer -z-10" />
-        <div className="absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,rgba(156,109,130,0.38),transparent_62%)]" />
-        <div className="hero-orb right-[-5rem] top-24 -z-10 h-52 w-52 bg-[rgba(198,142,90,0.17)] blur-3xl" />
-        <div className="hero-orb left-[-4rem] top-52 -z-10 h-44 w-44 bg-[rgba(156,109,130,0.16)] blur-3xl" />
-        <div className="hero-orb left-[18%] top-[7rem] -z-10 h-36 w-36 bg-[rgba(231,225,216,0.55)]" />
-        <div className="hero-orb right-[12%] top-[12rem] -z-10 h-28 w-28 bg-[rgba(38,72,77,0.12)]" />
-        <div className="petal-field" aria-hidden="true">
-          {heroPetals.map((petal, index) => (
-            <span
-              key={`${petal.left}-${index}`}
-              className="petal"
-              style={
-                {
-                  "--petal-left": petal.left,
-                  "--petal-delay": petal.delay,
-                  "--petal-duration": petal.duration,
-                  "--petal-size": petal.size,
-                  "--petal-drift": petal.drift,
-                  "--petal-sway": petal.sway,
-                } as CSSProperties
-              }
-            />
-          ))}
-        </div>
+      <div className="mx-auto max-w-7xl px-4 pb-2 pt-5 sm:px-6 lg:px-8">
+        <header className="surface-panel sticky top-4 z-30 rounded-full px-4 py-3 sm:px-5">
+          <div className="grid grid-cols-[auto_1fr_auto] items-center md:grid-cols-[1fr_auto_1fr]">
+            <nav className="hidden items-center gap-6 text-sm text-[var(--color-text-secondary)] md:flex">
+              {navigationLeft.map((item) => (
+                <Link key={item.href} href={item.href} className="hover:text-[var(--color-text-primary)]">
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
 
-        <div className="mx-auto max-w-7xl px-4 pb-14 pt-5 sm:px-6 sm:pb-[4.5rem] lg:px-8 lg:pb-24">
-          <header className="surface-panel sticky top-4 z-30 rounded-full px-4 py-3 sm:px-5">
-            <div className="grid grid-cols-[auto_1fr_auto] items-center md:grid-cols-[1fr_auto_1fr]">
-              <nav className="hidden items-center gap-6 text-sm text-[var(--color-text-secondary)] md:flex">
-                {navigationLeft.map((item) => (
+            <div className="justify-self-start md:hidden">
+              <MobileMenu />
+            </div>
+
+            <div className="justify-self-center text-center">
+              <AtelierAmoraLogo compact />
+            </div>
+
+            <div className="hidden items-center justify-end gap-4 md:flex">
+              <nav className="flex items-center gap-6 text-sm text-[var(--color-text-secondary)]">
+                {navigationRight.map((item) => (
                   <Link key={item.href} href={item.href} className="hover:text-[var(--color-text-primary)]">
                     {item.label}
                   </Link>
                 ))}
-              </nav>
-
-              <div className="justify-self-start md:hidden">
-                <MobileMenu />
-              </div>
-
-              <div className="justify-self-center text-center">
-                <AtelierAmoraLogo compact />
-              </div>
-
-              <div className="hidden items-center justify-end gap-4 md:flex">
-                <nav className="flex items-center gap-6 text-sm text-[var(--color-text-secondary)]">
-                  {navigationRight.map((item) => (
-                    <Link key={item.href} href={item.href} className="hover:text-[var(--color-text-primary)]">
-                      {item.label}
-                    </Link>
-                  ))}
-                  <Link href="/login" className="hover:text-[var(--color-text-primary)]">
-                    Masuk
-                  </Link>
-                </nav>
-                <Link
-                  href="/register"
-                  className="button-primary rounded-full px-5 py-3 text-sm font-semibold"
-                >
-                  Mulai Gratis
+                <Link href="/login" className="hover:text-[var(--color-text-primary)]">
+                  Masuk
                 </Link>
-              </div>
-
-              <div className="md:hidden" />
+              </nav>
+              <Link
+                href="/register"
+                className="button-primary rounded-full px-5 py-3 text-sm font-semibold"
+              >
+                Mulai Gratis
+              </Link>
             </div>
           </header>
 
@@ -200,113 +121,10 @@ export default async function MarketingPage() {
                 Mulai gratis, simpan draft, lalu publish saat semuanya siap.
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-[var(--color-text-secondary)]">
-                <span>Personal link per tamu</span>
-                <span className="hidden h-1 w-1 rounded-full bg-[var(--color-accent)] sm:inline-block" />
-                <span>Preview sinkron dengan halaman publik</span>
-                <span className="hidden h-1 w-1 rounded-full bg-[var(--color-accent)] sm:inline-block" />
-                <span>Ringan untuk HP low-end</span>
-              </div>
-            </ScrollReveal>
-
-            <div className="mt-12 grid gap-5 lg:mt-16 lg:grid-cols-[1.62fr_1fr]">
-              <ScrollReveal className="surface-panel overflow-hidden rounded-[var(--radius-panel)] p-5 sm:p-7" delay={80}>
-                <div className="rounded-[2rem] bg-[linear-gradient(160deg,#f8f3ee,#e7e1d8_52%,#cfadc0_114%)] p-5 sm:p-7">
-                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] text-[var(--color-secondary)]">
-                    <span>Preview Halaman Tamu</span>
-                    <span>Live Personal Route</span>
-                  </div>
-                  <div className="mt-7 grid gap-5 lg:grid-cols-[1.18fr_0.82fr]">
-                    <div className="overflow-hidden rounded-[2rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,244,0.82))] p-6 shadow-[0_16px_50px_rgba(141,85,96,0.08)]">
-                      <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
-                        The Wedding Of
-                      </p>
-                      <h2 className="mt-4 font-serif-display text-5xl leading-none text-[var(--color-text-primary)] sm:text-6xl">
-                        Alya
-                        <span className="mx-2 text-[var(--color-primary-strong)]">&</span>
-                        Raka
-                      </h2>
-                      <p className="mt-5 max-w-md text-sm leading-7 text-[var(--color-text-secondary)]">
-                        Undangan tampil lembut, lapang, dan tetap personal dengan nama tamu
-                        langsung di bagian pembuka.
-                      </p>
-
-                      <div className="mt-8 rounded-[1.75rem] border border-white/60 bg-white/72 px-5 py-4">
-                        <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-secondary)]">
-                          Untuk
-                        </p>
-                        <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                          Ibu Rina & Keluarga
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4">
-                      <div className="surface-card rounded-[2rem] p-5">
-                        <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--color-secondary)]">
-                          Contoh URL
-                        </p>
-                        <p className="mt-4 rounded-[1.4rem] bg-[var(--color-text-primary)] px-4 py-4 text-sm text-white">
-                          /alya-dan-raka/ibu-rina
-                        </p>
-                        <p className="mt-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-                          Link ini otomatis dibuat begitu tamu ditambahkan ke daftar guest.
-                        </p>
-                      </div>
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                        <div className="surface-card rounded-[2rem] p-5">
-                          <p className="text-3xl font-semibold text-[var(--color-primary-strong)]">
-                            3
-                          </p>
-                          <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                            template live untuk awal launch MVP.
-                          </p>
-                        </div>
-                        <div className="surface-card rounded-[2rem] p-5">
-                          <p className="text-3xl font-semibold text-[var(--color-secondary)]">
-                            RSVP
-                          </p>
-                          <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                            masuk langsung ke dashboard tanpa alur yang rumit.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </ScrollReveal>
-
-              <aside className="grid gap-5">
-                <ScrollReveal className="surface-card rounded-[var(--radius-card)] p-6" delay={140}>
-                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
-                    Untuk Pengantin Sibuk
-                  </p>
-                  <h2 className="mt-4 font-serif-display text-3xl leading-tight text-[var(--color-text-primary)]">
-                    Dari draft hingga link tamu dalam satu alur yang tenang.
-                  </h2>
-                  <p className="mt-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-                    Tidak perlu membuka terlalu banyak menu. Template, data acara, tamu, preview,
-                    dan performa undangan semuanya terasa menyatu.
-                  </p>
-                </ScrollReveal>
-
-                <ScrollReveal
-                  className="rounded-[var(--radius-card)] border border-[rgba(38,72,77,0.2)] bg-[rgba(38,72,77,0.08)] p-6"
-                  delay={220}
-                >
-                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
-                    Ringan & Siap Dibuka
-                  </p>
-                  <p className="mt-4 text-base leading-8 text-[var(--color-text-primary)]">
-                    Animasi dibatasi pada transisi opacity dan translate ringan agar tetap terasa
-                    halus, tetapi aman untuk perangkat kelas menengah ke bawah.
-                  </p>
-                </ScrollReveal>
-              </aside>
-            </div>
-          </section>
-        </div>
-      </section>
+            <div className="md:hidden" />
+          </div>
+        </header>
+      </div>
 
       <section id="template" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
@@ -358,70 +176,6 @@ export default async function MarketingPage() {
             </Link>
           </div>
         </ScrollReveal>
-      </section>
-
-      <section id="why-us" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <ScrollReveal className="surface-panel rounded-[var(--radius-panel)] px-6 py-8 sm:px-8 lg:px-12 lg:py-12">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.38fr] lg:items-start">
-            <SectionIntro
-              eyebrow="Why Choose Us"
-              title="Bukan sekadar landing page cantik, tetapi sistem undangan yang terasa matang sejak awal."
-              description="Produk ini dirancang untuk menjual rasa personal sekaligus menjaga flow operasional tetap ringan bagi pasangan yang tidak ingin tenggelam di dashboard."
-            />
-
-            <div className="grid gap-4">
-              {whyChooseUs.map((item, index) => (
-                <ScrollReveal
-                  key={item.title}
-                  className="surface-card rounded-[1.8rem] px-5 py-5 sm:px-6"
-                  delay={index * 90}
-                >
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                    {item.description}
-                  </p>
-                </ScrollReveal>
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-      </section>
-
-      <section id="flow" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <ScrollReveal>
-          <SectionIntro
-            eyebrow="Cara Kerja"
-            title="Alur yang terasa singkat di mata user, tapi cukup kuat untuk dibangun sebagai MVP."
-            description="Journey dibuat untuk mengurangi beban keputusan: pilih, isi, preview, import, kirim, lalu pantau hasilnya."
-            align="center"
-          />
-        </ScrollReveal>
-
-        <div className="mt-10 grid gap-4 lg:grid-cols-2">
-          {flowSteps.map((item, index) => (
-            <ScrollReveal
-              key={item.step}
-              className="surface-card rounded-[2rem] p-5 sm:p-6"
-              delay={index * 80}
-            >
-              <div className="flex gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[rgba(240,196,203,0.58)] text-sm font-semibold text-[var(--color-primary-strong)]">
-                  {item.step}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold leading-7 text-[var(--color-text-primary)]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
-            </ScrollReveal>
-          ))}
-        </div>
       </section>
 
       <section id="pricing" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -481,7 +235,7 @@ export default async function MarketingPage() {
         </div>
       </section>
 
-      <section className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section id="cta" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <ScrollReveal className="surface-panel rounded-[var(--radius-panel)] px-6 py-10 sm:px-8 lg:px-14 lg:py-14">
           <div className="mx-auto max-w-4xl text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
