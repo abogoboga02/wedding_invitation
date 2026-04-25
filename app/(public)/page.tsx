@@ -120,6 +120,7 @@ export default async function MarketingPage() {
               <p className="mt-4 text-xs uppercase tracking-[0.24em] text-[var(--color-secondary)]/80 sm:text-sm">
                 Mulai gratis, simpan draft, lalu publish saat semuanya siap.
               </p>
+            </ScrollReveal>
 
             <div className="md:hidden" />
           </div>
