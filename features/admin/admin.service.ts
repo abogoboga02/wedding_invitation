@@ -119,6 +119,8 @@ export type AdminPaymentsData = {
     id: string;
     status: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
     amountInIdr: number;
+    templateName: string | null;
+    selectedPackage: "STARTER" | "SIGNATURE" | "STUDIO" | null;
     userName: string | null;
     userEmail: string;
   }>;
@@ -515,7 +517,7 @@ export async function getAdminPaymentsData(): Promise<AdminPaymentsData> {
     unwrapList(
       await client
         .from("payment_orders")
-        .select("id, user_id, status, amount_in_idr")
+        .select("id, user_id, status, amount_in_idr, template_name, selected_package")
         .order("created_at", { ascending: false })
         .limit(10),
       "Gagal mengambil payment order admin.",
@@ -544,6 +546,8 @@ export async function getAdminPaymentsData(): Promise<AdminPaymentsData> {
       id: payment.id,
       status: payment.status,
       amountInIdr: payment.amount_in_idr,
+      templateName: payment.template_name,
+      selectedPackage: payment.selected_package,
       userName: userMap.get(payment.user_id)?.name ?? null,
       userEmail: userMap.get(payment.user_id)?.email ?? "-",
     })),

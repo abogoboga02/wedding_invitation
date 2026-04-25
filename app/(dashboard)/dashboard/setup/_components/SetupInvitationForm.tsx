@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useCallback, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
@@ -206,19 +206,20 @@ function SetupInvitationFormEditor({
   const [locationValue, setLocationValue] = useState<LocationPickerValue>(initialLocationValue);
   const sectionClassName =
     "rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 sm:px-6";
+  const setupSections = useMemo(() => coreSetupSections, []);
 
-  function handleFieldChange(fieldName: string, value: TemplateConfigFieldValue) {
+  const handleFieldChange = useCallback((fieldName: string, value: TemplateConfigFieldValue) => {
     setFormValues((currentValues) => ({
       ...currentValues,
       [fieldName]: value,
     }));
     setErrors((currentErrors) => clearFieldErrors(currentErrors, [fieldName]));
-  }
+  }, []);
 
-  function handleLocationChange(value: LocationPickerValue) {
+  const handleLocationChange = useCallback((value: LocationPickerValue) => {
     setLocationValue(value);
     setErrors((currentErrors) => clearFieldErrors(currentErrors, locationFieldNames));
-  }
+  }, []);
 
   return (
     <form
@@ -262,7 +263,7 @@ function SetupInvitationFormEditor({
         </p>
       ) : null}
 
-      {coreSetupSections.map((section) => (
+      {setupSections.map((section) => (
         <section key={section.id} className={sectionClassName}>
           <div className="space-y-1">
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">

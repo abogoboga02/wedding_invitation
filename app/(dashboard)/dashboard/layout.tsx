@@ -20,7 +20,7 @@ export default async function DashboardLayout({
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f3efea,#ffffff)]">
       <div className="mx-auto max-w-[92rem] px-4 py-6 sm:px-6 lg:px-8">
-        <header className="surface-panel mb-5 rounded-[2.25rem] px-5 py-5 sm:px-6">
+        <header className="surface-panel mb-5 rounded-[2.25rem] px-5 py-5 sm:px-6 xl:sticky xl:top-4 xl:z-20">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="font-serif-display text-3xl uppercase tracking-[0.16em] text-[var(--color-rose-dark)]">
@@ -51,7 +51,7 @@ export default async function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className="shrink-0 rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)]"
+                className="shrink-0 rounded-full border border-[var(--color-border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:border-[rgba(156,109,130,0.3)] hover:text-[var(--color-text-primary)]"
               >
                 {item.shortLabel}
               </Link>

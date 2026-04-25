@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import type {
   InvitationFormFieldDefinition,
   TemplateConfigFieldValue,
@@ -20,7 +22,7 @@ function inputClass(hasError: boolean) {
   }`;
 }
 
-export function InvitationFormFieldRenderer({
+export const InvitationFormFieldRenderer = memo(function InvitationFormFieldRenderer({
   field,
   value,
   error,
@@ -102,4 +104,4 @@ export function InvitationFormFieldRenderer({
       {error ? <p className="text-sm text-[var(--color-error)]">{error}</p> : null}
     </label>
   );
-}
+});
