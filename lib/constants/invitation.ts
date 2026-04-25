@@ -11,12 +11,22 @@ export const RESERVED_SLUGS = new Set([
 export const TEMPLATE_OPTIONS: Array<{
   id: InvitationTemplate;
   label: string;
+  slug: string;
+  category: "CLASSIC" | "ROMANTIC" | "MODERN";
+  previewImage: string;
+  priceInIdr: number;
+  isPremium: boolean;
   tagline: string;
   description: string;
 }> = [
   {
     id: "ELEGANT_LUXURY",
     label: "Elegant Luxury",
+    slug: "elegant-luxury",
+    category: "CLASSIC",
+    previewImage: "/templates/elegant-luxury-preview.jpg",
+    priceInIdr: 249000,
+    isPremium: true,
     tagline: "Hitam, gold, dan serif berkelas.",
     description:
       "Untuk pasangan yang ingin kesan mewah, tegas, dan terasa eksklusif sejak pembuka.",
@@ -24,6 +34,11 @@ export const TEMPLATE_OPTIONS: Array<{
   {
     id: "KOREAN_SOFT",
     label: "Korean Soft",
+    slug: "korean-soft",
+    category: "ROMANTIC",
+    previewImage: "/templates/korean-soft-preview.jpg",
+    priceInIdr: 149000,
+    isPremium: false,
     tagline: "Pastel lembut, modern, dan romantis.",
     description:
       "Nuansa ringan dengan sentuhan feminin yang bersih dan nyaman dibaca di layar ponsel.",
@@ -31,6 +46,11 @@ export const TEMPLATE_OPTIONS: Array<{
   {
     id: "MODERN_MINIMAL",
     label: "Modern Minimal",
+    slug: "modern-minimal",
+    category: "MODERN",
+    previewImage: "/templates/modern-minimal-preview.jpg",
+    priceInIdr: 179000,
+    isPremium: false,
     tagline: "Monokrom sederhana yang tetap classy.",
     description:
       "Pendekatan minimal dengan ritme visual rapi untuk pasangan yang suka gaya kontemporer.",

@@ -1,18 +1,26 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
-import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
+import { getTemplateDisplayName } from "@/features/invitation/templates/template-schema";
 
-import { SetupInvitationForm } from "./_components/SetupInvitationForm";
+const SetupInvitationForm = dynamic(
+  () => import("./_components/SetupInvitationForm").then((mod) => mod.SetupInvitationForm),
+  {
+    loading: () => (
+      <div className="rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 text-sm text-[var(--color-text-secondary)]">
+        Memuat editor setup undangan...
+      </div>
+    ),
+  },
+);
 
 export default async function DashboardSetupPage() {
   const user = await requireClientUser();
   const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
 
-  const activeTemplateLabel =
-    TEMPLATE_OPTIONS.find((template) => template.id === invitation.template)?.label ??
-    invitation.template.replaceAll("_", " ");
+  const activeTemplateLabel = invitation.templateName ?? getTemplateDisplayName(invitation.template);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -31,7 +39,7 @@ export default async function DashboardSetupPage() {
               pengisian terasa ramai.
             </p>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">
-              Template aktif: {activeTemplateLabel}
+Template pilihan admin: {activeTemplateLabel}
             </p>
           </div>
 

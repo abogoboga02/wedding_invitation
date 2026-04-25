@@ -257,6 +257,21 @@ model InvitationSetting {
   updatedAt            DateTime    @updatedAt
 }
 
+model Template {
+  id               String        @id @default(cuid())
+  templateId       String        @unique
+  templateName     String
+  templateSlug     String        @unique
+  templateCategory String
+  templatePreview  String
+  templatePrice    Int
+  isPremium        Boolean       @default(false)
+  isActive         Boolean       @default(true)
+  paymentOrders    PaymentOrder[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
 model Plan {
   id            String             @id @default(cuid())
   tier          PlanTier           @unique
@@ -293,9 +308,15 @@ model PaymentOrder {
   userId            String
   invitationId      String?
   planId            String?
+  templateRefId     String?
+  templateId        String?
+  templateName      String?
+  templatePrice     Int?
+  selectedPackage   PlanTier?
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   invitation        Invitation?   @relation(fields: [invitationId], references: [id], onDelete: SetNull)
   plan              Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  template          Template?     @relation(fields: [templateRefId], references: [id], onDelete: SetNull)
   status            PaymentStatus @default(PENDING)
   amountInIdr       Int
   currency          String        @default("IDR")
@@ -307,6 +328,7 @@ model PaymentOrder {
 
   @@index([userId, status, createdAt])
   @@index([invitationId, status])
+  @@index([templateRefId, status])
 }
 
 model SendLog {

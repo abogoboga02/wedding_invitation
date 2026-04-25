@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   getMusicPresetById,
@@ -24,9 +24,9 @@ export function MusicPresetPicker({
 
     return preset?.mood === defaultMood ? defaultPresetId : "";
   });
-  const visiblePresets = getMusicPresetsByMood(selectedMood);
+  const visiblePresets = useMemo(() => getMusicPresetsByMood(selectedMood), [selectedMood]);
 
-  function handleMoodSelect(mood: MusicPresetMood) {
+  const handleMoodSelect = useCallback((mood: MusicPresetMood) => {
     setSelectedMood(mood);
 
     const selectedPreset = getMusicPresetById(selectedPresetId);
@@ -34,7 +34,7 @@ export function MusicPresetPicker({
     if (selectedPreset && selectedPreset.mood !== mood) {
       setSelectedPresetId("");
     }
-  }
+  }, [selectedPresetId]);
 
   return (
     <section className="space-y-4 rounded-[2rem] border border-[var(--color-border)] bg-[var(--color-surface-alt)]/70 p-5">

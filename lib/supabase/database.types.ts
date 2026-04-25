@@ -54,6 +54,8 @@ export type Database = {
           id: string;
           owner_id: string;
           template: InvitationTemplate;
+          template_name: string | null;
+          template_schema: Json | null;
           status: InvitationStatus;
           couple_slug: string;
           partner_one_name: string;
@@ -79,6 +81,8 @@ export type Database = {
           id?: string;
           owner_id: string;
           template?: InvitationTemplate;
+          template_name?: string | null;
+          template_schema?: Json | null;
           status?: InvitationStatus;
           couple_slug: string;
           partner_one_name: string;
@@ -104,6 +108,8 @@ export type Database = {
           id?: string;
           owner_id?: string;
           template?: InvitationTemplate;
+          template_name?: string | null;
+          template_schema?: Json | null;
           status?: InvitationStatus;
           couple_slug?: string;
           partner_one_name?: string;
@@ -373,6 +379,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      templates: {
+        Row: {
+          id: string;
+          template_id: string;
+          template_name: string;
+          template_slug: string;
+          template_category: string;
+          template_preview: string;
+          template_price: number;
+          is_premium: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          template_name: string;
+          template_slug: string;
+          template_category: string;
+          template_preview: string;
+          template_price: number;
+          is_premium?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          template_name?: string;
+          template_slug?: string;
+          template_category?: string;
+          template_preview?: string;
+          template_price?: number;
+          is_premium?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       plans: {
         Row: {
           id: string;
@@ -451,6 +499,11 @@ export type Database = {
           user_id: string;
           invitation_id: string | null;
           plan_id: string | null;
+          template_ref_id: string | null;
+          template_id: string | null;
+          template_name: string | null;
+          template_price: number | null;
+          selected_package: PlanTier | null;
           status: PaymentStatus;
           amount_in_idr: number;
           currency: string;
@@ -465,6 +518,11 @@ export type Database = {
           user_id: string;
           invitation_id?: string | null;
           plan_id?: string | null;
+          template_ref_id?: string | null;
+          template_id?: string | null;
+          template_name?: string | null;
+          template_price?: number | null;
+          selected_package?: PlanTier | null;
           status?: PaymentStatus;
           amount_in_idr: number;
           currency?: string;
@@ -479,6 +537,11 @@ export type Database = {
           user_id?: string;
           invitation_id?: string | null;
           plan_id?: string | null;
+          template_ref_id?: string | null;
+          template_id?: string | null;
+          template_name?: string | null;
+          template_price?: number | null;
+          selected_package?: PlanTier | null;
           status?: PaymentStatus;
           amount_in_idr?: number;
           currency?: string;

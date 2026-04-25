@@ -40,6 +40,10 @@ export default async function AdminTemplatesPage() {
               <p className="mt-5 text-sm font-medium text-[var(--color-text-primary)]">
                 Dipakai di {usageMap.get(template.id) ?? 0} invitation
               </p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                {template.isPremium ? "Premium" : "Reguler"} â€¢ Rp
+                {template.priceInIdr.toLocaleString("id-ID")}
+              </p>
             </article>
           ))}
         </div>

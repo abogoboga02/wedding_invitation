@@ -1,13 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { guestSchema } from "@/features/guest/guest.schema";
 import { createUniqueGuestSlug } from "@/features/guest/guest.service";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
 import {
   buildTemplateConfigFromSetupForm,
-  normalizeTemplateConfig,
   updateTemplateConfigMusicSelection,
 } from "@/features/invitation/form/config";
 import {
@@ -15,14 +14,12 @@ import {
   commonInvitationSetupSchema,
 } from "@/features/invitation/invitation.schema";
 import {
+  dashboardCacheTags,
   getDashboardInvitationSummary,
   getOrCreateDashboardInvitation,
   validateInvitationPublishability,
 } from "@/features/invitation/invitation.service";
-import {
-  getInvitationTemplateSlug,
-  isInvitationTemplate,
-} from "@/features/invitation/templates/template-slugs";
+import { getInvitationTemplateSlug } from "@/features/invitation/templates/template-slugs";
 import { invitationSettingsSchema } from "@/features/settings/settings.schema";
 import { requireClientUser } from "@/lib/auth/guards";
 import { getMusicPresetById } from "@/lib/constants/music-playlist";
@@ -51,61 +48,20 @@ function uniqueStoragePaths(paths: Array<string | null | undefined>) {
   return [...new Set(paths.filter((item): item is string => Boolean(item?.trim())))];
 }
 
+function revalidateDashboardCaches() {
+  revalidateTag(dashboardCacheTags.invitationSummary);
+  revalidateTag(dashboardCacheTags.analyticsSummary);
+}
+
 export async function saveTemplateSelectionAction(
   _prevState: DashboardActionState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<DashboardActionState> {
-  const user = await getAuthenticatedUser();
-  const supabase = await createServerSupabaseClient();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
-  const template = String(formData.get("template") ?? "").trim();
-
-  if (!template) {
-    return { error: "Pilih satu template terlebih dahulu." };
-  }
-
-  if (!isInvitationTemplate(template)) {
-    return {
-      error: "Template yang dipilih tidak dikenali. Silakan pilih ulang dari daftar template.",
-    };
-  }
-
-  const nextTemplateConfig = normalizeTemplateConfig(template, invitation.templateConfig);
-  const generatedCopy = buildGeneratedInvitationCopy({
-    templateSlug: getInvitationTemplateSlug(template),
-    partnerOneName: invitation.partnerOneName,
-    partnerTwoName: invitation.partnerTwoName,
-    config: nextTemplateConfig,
-  });
-
-  const { error } = await supabase
-    .from("invitations")
-    .update({
-      template,
-      template_config: nextTemplateConfig,
-      headline: generatedCopy.legacy.headline,
-      subheadline: generatedCopy.legacy.subheadline,
-      story: generatedCopy.legacy.story,
-      closing_note: generatedCopy.legacy.closingNote,
-    })
-    .eq("id", invitation.id);
-
-  if (error) {
-    return {
-      error: "Template aktif belum berhasil diperbarui.",
-    };
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/templates");
-  revalidatePath("/dashboard/setup");
-  revalidatePath("/dashboard/preview");
+  await getAuthenticatedUser();
 
   return {
-    success:
-      invitation.status === "PUBLISHED"
-        ? "Template aktif berhasil diperbarui dan langsung dipakai pada link publik."
-        : "Template aktif berhasil diperbarui.",
+    error:
+      "Template invitation dikunci oleh admin. Hubungi admin bila perlu mengganti template akun Anda.",
   };
 }
 
@@ -253,6 +209,7 @@ export async function saveSetupInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/settings");
+  revalidateDashboardCaches();
 
   return {
     success: "Setup undangan berhasil diperbarui sebagai draft. Publish ulang untuk mengaktifkan link publik.",
@@ -384,6 +341,7 @@ export async function saveMediaInvitationAction(
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/setup");
   revalidatePath("/dashboard/preview");
+  revalidateDashboardCaches();
 
   return {
     success: "Media invitation berhasil diperbarui.",
@@ -432,6 +390,7 @@ export async function publishInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: "Invitation berhasil dipublish dan link personal sudah aktif.",
@@ -490,6 +449,7 @@ export async function saveInvitationSettingsAction(
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: "Pengaturan invitation berhasil diperbarui.",
@@ -551,6 +511,7 @@ export async function addGuestAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: `Tamu berhasil ditambahkan. Personal link siap di /${invitation.coupleSlug}/${guestSlug}.`,
@@ -608,6 +569,7 @@ export async function updateGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 }
 
 export async function deleteGuestAction(formData: FormData) {
@@ -630,6 +592,7 @@ export async function deleteGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 }
 
 export async function logManualSendAction(formData: FormData) {
@@ -679,4 +642,5 @@ export async function logManualSendAction(formData: FormData) {
 
   revalidatePath("/dashboard/send");
   revalidatePath("/admin/send-logs");
+  revalidateDashboardCaches();
 }

@@ -1,10 +1,21 @@
+import dynamic from "next/dynamic";
+
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 
-import { MediaStudioForm } from "./_components/MediaStudioForm";
+const MediaStudioForm = dynamic(
+  () => import("./_components/MediaStudioForm").then((mod) => mod.MediaStudioForm),
+  {
+    loading: () => (
+      <div className="rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 text-sm text-[var(--color-text-secondary)]">
+        Memuat studio media...
+      </div>
+    ),
+  },
+);
 
 export default async function DashboardMediaPage() {
   const user = await requireClientUser();

@@ -38,6 +38,8 @@ export type AdminUserRow = {
     id: string;
     coupleSlug: string;
     status: "DRAFT" | "PUBLISHED";
+    template: string;
+    templateName: string | null;
   } | null;
 };
 
@@ -117,6 +119,8 @@ export type AdminPaymentsData = {
     id: string;
     status: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
     amountInIdr: number;
+    templateName: string | null;
+    selectedPackage: "STARTER" | "SIGNATURE" | "STUDIO" | null;
     userName: string | null;
     userEmail: string;
   }>;
@@ -244,7 +248,7 @@ export async function getAdminUsers() {
       "Gagal mengambil daftar user admin.",
     ),
     unwrapList(
-      await client.from("invitations").select("id, owner_id, couple_slug, status"),
+      await client.from("invitations").select("id, owner_id, couple_slug, status, template, template_name"),
       "Gagal mengambil invitation milik user.",
     ),
   ]);
@@ -256,6 +260,8 @@ export async function getAdminUsers() {
         id: invitation.id,
         coupleSlug: invitation.couple_slug,
         status: invitation.status,
+        template: invitation.template,
+        templateName: invitation.template_name,
       },
     ]),
   );
@@ -511,7 +517,7 @@ export async function getAdminPaymentsData(): Promise<AdminPaymentsData> {
     unwrapList(
       await client
         .from("payment_orders")
-        .select("id, user_id, status, amount_in_idr")
+        .select("id, user_id, status, amount_in_idr, template_name, selected_package")
         .order("created_at", { ascending: false })
         .limit(10),
       "Gagal mengambil payment order admin.",
@@ -540,6 +546,8 @@ export async function getAdminPaymentsData(): Promise<AdminPaymentsData> {
       id: payment.id,
       status: payment.status,
       amountInIdr: payment.amount_in_idr,
+      templateName: payment.template_name,
+      selectedPackage: payment.selected_package,
       userName: userMap.get(payment.user_id)?.name ?? null,
       userEmail: userMap.get(payment.user_id)?.email ?? "-",
     })),

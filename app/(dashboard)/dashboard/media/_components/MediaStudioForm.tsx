@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import type { InvitationTemplateConfigValues } from "@/features/invitation/form/config";
@@ -38,6 +38,40 @@ export function MediaStudioForm({
   musicStoragePath,
 }: MediaStudioFormProps) {
   const [state, formAction] = useActionState(saveMediaInvitationAction, initialState);
+  const initialCoverAssets = useMemo(
+    () => (coverImage ? [{ url: coverImage, storagePath: coverImageStoragePath ?? undefined }] : []),
+    [coverImage, coverImageStoragePath],
+  );
+  const initialGalleryAssets = useMemo(
+    () =>
+      galleryImages.map((image) => ({
+        url: image.imageUrl,
+        storagePath: image.storagePath ?? undefined,
+      })),
+    [galleryImages],
+  );
+  const initialMusicAssets = useMemo(
+    () =>
+      musicUrl && templateConfig.music.source === "upload"
+        ? [
+            {
+              url: musicUrl,
+              storagePath: musicStoragePath ?? undefined,
+              originalName: musicOriginalName ?? undefined,
+              mimeType: musicMimeType ?? undefined,
+              size: musicSize ?? undefined,
+            },
+          ]
+        : [],
+    [
+      musicMimeType,
+      musicOriginalName,
+      musicSize,
+      musicStoragePath,
+      musicUrl,
+      templateConfig.music.source,
+    ],
+  );
 
   return (
     <form action={formAction} className="space-y-6">
@@ -57,9 +91,7 @@ export function MediaStudioForm({
         helperText="Unggah satu gambar utama untuk hero undangan."
         name="coverImage"
         kind="cover"
-        initialAssets={
-          coverImage ? [{ url: coverImage, storagePath: coverImageStoragePath ?? undefined }] : []
-        }
+        initialAssets={initialCoverAssets}
         metadataFieldNames={{
           storagePath: "coverImageStoragePath",
         }}
@@ -83,10 +115,7 @@ export function MediaStudioForm({
         name="galleryImages"
         kind="gallery"
         multiple
-        initialAssets={galleryImages.map((image) => ({
-          url: image.imageUrl,
-          storagePath: image.storagePath ?? undefined,
-        }))}
+        initialAssets={initialGalleryAssets}
         metadataFieldNames={{
           storagePath: "galleryImageStoragePaths",
         }}
@@ -97,19 +126,7 @@ export function MediaStudioForm({
         helperText="Unggah satu file audio ringan bila ingin memakai lagu sendiri. Jika tidak, Anda bisa memilih preset playlist bawaan."
         name="musicUrl"
         kind="music"
-        initialAssets={
-          musicUrl && templateConfig.music.source === "upload"
-            ? [
-                {
-                  url: musicUrl,
-                  storagePath: musicStoragePath ?? undefined,
-                  originalName: musicOriginalName ?? undefined,
-                  mimeType: musicMimeType ?? undefined,
-                  size: musicSize ?? undefined,
-                },
-              ]
-            : []
-        }
+        initialAssets={initialMusicAssets}
         metadataFieldNames={{
           originalName: "musicOriginalName",
           mimeType: "musicMimeType",

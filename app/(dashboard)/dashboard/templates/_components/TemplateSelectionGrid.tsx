@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { memo, useActionState, useCallback, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
@@ -23,6 +23,12 @@ const templateBadges = {
 export function TemplateSelectionGrid({ activeTemplate }: TemplateSelectionGridProps) {
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
   const [state, formAction] = useActionState(saveTemplateSelectionAction, initialState);
+  const previewTemplateLabel = useMemo(
+    () => TEMPLATE_OPTIONS.find((item) => item.id === previewTemplate)?.label,
+    [previewTemplate],
+  );
+  const handlePreviewOpen = useCallback((templateId: string) => setPreviewTemplate(templateId), []);
+  const handlePreviewClose = useCallback(() => setPreviewTemplate(null), []);
 
   return (
     <div className="space-y-6">
@@ -38,83 +44,15 @@ export function TemplateSelectionGrid({ activeTemplate }: TemplateSelectionGridP
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-3">
-        {TEMPLATE_OPTIONS.map((template) => {
-          const isSelected = activeTemplate === template.id;
-
-          return (
-            <article
-              key={template.id}
-              className={`surface-card rounded-[2.2rem] p-5 ${
-                isSelected ? "ring-2 ring-[rgba(200,125,135,0.45)]" : ""
-              }`}
-            >
-              <div
-                className={`rounded-[1.8rem] p-5 ${
-                  template.id === "ELEGANT_LUXURY"
-                    ? "bg-[linear-gradient(160deg,#181315,#2b2324_55%,#5a4231)] text-[#f7e4c9]"
-                    : template.id === "KOREAN_SOFT"
-                      ? "bg-[linear-gradient(160deg,#fffaf7,#fbead6_55%,#f0c4cb)] text-[#6d5358]"
-                      : "bg-[linear-gradient(160deg,#ffffff,#f8f2ee_58%,#e5bca9)] text-[#2a2425]"
-                }`}
-              >
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] opacity-75">
-                  <span>{template.label}</span>
-                  <span>{isSelected ? "Aktif" : "Preview"}</span>
-                </div>
-                <div className="pb-12 pt-16 text-center">
-                  <p className="font-serif-display text-4xl">A & R</p>
-                  <p className="mt-3 text-sm opacity-80">Untuk: Tamu Tercinta</p>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-4">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-secondary)]">
-                    {template.tagline}
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
-                    {template.label}
-                  </h2>
-                  <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
-                    {template.description}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {templateBadges[template.id].map((badge) => (
-                    <span
-                      key={badge}
-                      className="rounded-full bg-[var(--color-surface-alt)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]"
-                    >
-                      {badge}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTemplate(template.id)}
-                    className="button-secondary rounded-full px-4 py-3 text-sm font-semibold"
-                  >
-                    Preview
-                  </button>
-                  <form action={formAction}>
-                    <input type="hidden" name="template" value={template.id} />
-                    <SubmitButton
-                      pendingLabel="Menyimpan..."
-                      className={`w-full rounded-full px-4 py-3 text-sm font-semibold ${
-                        isSelected ? "button-secondary" : "button-primary"
-                      }`}
-                    >
-                      {isSelected ? "Template Aktif" : "Pilih Template"}
-                    </SubmitButton>
-                  </form>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+        {TEMPLATE_OPTIONS.map((template) => (
+          <TemplateCard
+            key={template.id}
+            template={template}
+            isSelected={activeTemplate === template.id}
+            formAction={formAction}
+            onOpenPreview={handlePreviewOpen}
+          />
+        ))}
       </div>
 
       {previewTemplate ? (
@@ -126,12 +64,12 @@ export function TemplateSelectionGrid({ activeTemplate }: TemplateSelectionGridP
                   Template Preview
                 </p>
                 <h3 className="mt-2 font-serif-display text-3xl text-[var(--color-text-primary)]">
-                  {TEMPLATE_OPTIONS.find((item) => item.id === previewTemplate)?.label}
+                  {previewTemplateLabel}
                 </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setPreviewTemplate(null)}
+                onClick={handlePreviewClose}
                 className="rounded-full border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text-secondary)]"
               >
                 Tutup
@@ -155,3 +93,90 @@ export function TemplateSelectionGrid({ activeTemplate }: TemplateSelectionGridP
     </div>
   );
 }
+
+type TemplateCardProps = {
+  template: (typeof TEMPLATE_OPTIONS)[number];
+  isSelected: boolean;
+  formAction: (payload: FormData) => void;
+  onOpenPreview: (templateId: string) => void;
+};
+
+const TemplateCard = memo(function TemplateCard({
+  template,
+  isSelected,
+  formAction,
+  onOpenPreview,
+}: TemplateCardProps) {
+  return (
+    <article
+      className={`surface-card rounded-[2.2rem] p-5 ${
+        isSelected ? "ring-2 ring-[rgba(200,125,135,0.45)]" : ""
+      }`}
+    >
+      <div
+        className={`rounded-[1.8rem] p-5 ${
+          template.id === "ELEGANT_LUXURY"
+            ? "bg-[linear-gradient(160deg,#181315,#2b2324_55%,#5a4231)] text-[#f7e4c9]"
+            : template.id === "KOREAN_SOFT"
+              ? "bg-[linear-gradient(160deg,#fffaf7,#fbead6_55%,#f0c4cb)] text-[#6d5358]"
+              : "bg-[linear-gradient(160deg,#ffffff,#f8f2ee_58%,#e5bca9)] text-[#2a2425]"
+        }`}
+      >
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] opacity-75">
+          <span>{template.label}</span>
+          <span>{isSelected ? "Aktif" : "Preview"}</span>
+        </div>
+        <div className="pb-12 pt-16 text-center">
+          <p className="font-serif-display text-4xl">A & R</p>
+          <p className="mt-3 text-sm opacity-80">Untuk: Tamu Tercinta</p>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-4">
+        <div>
+          <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-secondary)]">
+            {template.tagline}
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+            {template.label}
+          </h2>
+          <p className="mt-2 text-sm leading-7 text-[var(--color-text-secondary)]">
+            {template.description}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {templateBadges[template.id].map((badge) => (
+            <span
+              key={badge}
+              className="rounded-full bg-[var(--color-surface-alt)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)]"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onOpenPreview(template.id)}
+            className="button-secondary rounded-full px-4 py-3 text-sm font-semibold"
+          >
+            Preview
+          </button>
+          <form action={formAction}>
+            <input type="hidden" name="template" value={template.id} />
+            <SubmitButton
+              pendingLabel="Menyimpan..."
+              className={`w-full rounded-full px-4 py-3 text-sm font-semibold ${
+                isSelected ? "button-secondary" : "button-primary"
+              }`}
+            >
+              {isSelected ? "Template Aktif" : "Pilih Template"}
+            </SubmitButton>
+          </form>
+        </div>
+      </div>
+    </article>
+  );
+});
