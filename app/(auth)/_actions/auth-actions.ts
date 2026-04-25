@@ -2,6 +2,7 @@
 
 import { AuthError } from "next-auth";
 import { hash } from "bcryptjs";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { signIn, signOut } from "@/auth";
 import {
@@ -38,22 +39,25 @@ export async function loginAction(
     await signIn("credentials", {
       identifier: parsedForm.data.identifier,
       password: parsedForm.data.password,
+      redirect: false,
       redirectTo: "/dashboard",
     });
   } catch (error) {
+    unstable_rethrow(error);
+
     if (error instanceof AuthError) {
-        return {
-          error:
-            error.type === "CredentialsSignin"
-              ? "Email/username atau password tidak cocok."
-              : "Login belum berhasil. Coba lagi.",
-        };
+      return {
+        error:
+          error.type === "CredentialsSignin"
+            ? "Email/username atau password tidak cocok."
+            : "Login belum berhasil. Coba lagi.",
+      };
     }
 
     throw error;
   }
 
-  return {};
+  redirect("/dashboard");
 }
 
 export async function registerAction(
@@ -103,9 +107,12 @@ export async function registerAction(
     await signIn("credentials", {
       identifier: parsedForm.data.email,
       password: parsedForm.data.password,
+      redirect: false,
       redirectTo: "/dashboard",
     });
   } catch (error) {
+    unstable_rethrow(error);
+
     if (error instanceof AuthError) {
       return {
         error: "Akun berhasil dibuat, tetapi login otomatis belum berhasil.",
@@ -115,11 +122,18 @@ export async function registerAction(
     throw error;
   }
 
-  return {};
+  redirect("/dashboard");
 }
 
 export async function logoutAction() {
-  await signOut({ redirectTo: "/login" });
+  try {
+    await signOut({ redirect: false, redirectTo: "/login" });
+  } catch (error) {
+    unstable_rethrow(error);
+    throw error;
+  }
+
+  redirect("/login");
 }
 
 export async function forgotPasswordAction(
