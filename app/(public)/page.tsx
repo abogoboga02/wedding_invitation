@@ -7,6 +7,7 @@ import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
 import { SectionIntro } from "./_components/SectionIntro";
 import { AtelierAmoraLogo } from "./_components/AtelierAmoraLogo";
+import { TemplateShowcaseCard } from "./_components/TemplateShowcaseCard";
 
 const navigationLeft = [
   { href: "#template", label: "Template" },
@@ -24,7 +25,24 @@ const footerLinks = [
   { href: "/login", label: "Masuk" },
 ];
 
+const heroPetals = [
+  { left: "8%", delay: "0s", duration: "15s", size: "14px", drift: "24px", sway: "3.5s" },
+  { left: "24%", delay: "2s", duration: "13s", size: "16px", drift: "-18px", sway: "4.2s" },
+  { left: "41%", delay: "0.8s", duration: "14.2s", size: "15px", drift: "-14px", sway: "3.7s" },
+  { left: "58%", delay: "1.5s", duration: "14.5s", size: "12px", drift: "22px", sway: "3.2s" },
+  { left: "78%", delay: "4s", duration: "16s", size: "18px", drift: "-22px", sway: "4.8s" },
+  { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
+];
+
+const LANDING_TEMPLATE_LIMIT = 8;
+
 export default async function MarketingPage() {
+  const supabase = await createSupabaseClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+  const landingTemplates = TEMPLATE_OPTIONS.slice(0, LANDING_TEMPLATE_LIMIT);
+
   return (
     <main className="editorial-shell flex-1">
       <div className="mx-auto max-w-7xl px-4 pb-2 pt-5 sm:px-6 lg:px-8">
@@ -64,6 +82,44 @@ export default async function MarketingPage() {
                 Mulai Gratis
               </Link>
             </div>
+          </header>
+
+          <section className="pb-8 pt-14 sm:pt-[4.5rem] lg:pt-24">
+            <ScrollReveal className="mx-auto max-w-5xl text-center">
+              <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-[rgba(200,125,135,0.16)] bg-white/70 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-[var(--color-secondary)] shadow-[0_10px_28px_rgba(141,85,96,0.08)]">
+                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
+                Tool Undangan Digital Personal
+              </div>
+              <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+                Supabase session: {supabaseUser ? `aktif sebagai ${supabaseUser.email}` : "belum login"}
+              </p>
+              <h1 className="mt-7 font-serif-display text-balance text-[3.5rem] leading-[0.88] text-[var(--color-text-primary)] sm:text-[4.9rem] lg:text-[6.4rem]">
+                Undangan yang terasa lebih intim, lebih premium, dan lebih hidup sejak link pertama dibuka.
+              </h1>
+              <p className="mx-auto mt-7 max-w-3xl text-base leading-8 text-[var(--color-text-secondary)] sm:text-lg">
+                Rancang undangan digital yang ringan dibuka di ponsel, indah dilihat, dan
+                personal lewat link tamu unik seperti <code>/alya-dan-raka/bu-rina</code>.
+                Semua terasa rapi dari draft, preview, sampai RSVP masuk kembali ke dashboard.
+              </p>
+
+              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link
+                  href="/register"
+                  className="button-primary button-primary-emphasis inline-flex min-w-[15rem] justify-center rounded-full px-7 py-4 text-sm font-semibold sm:text-base"
+                >
+                  Buat Undangan Pertama
+                </Link>
+                <Link
+                  href="#template"
+                  className="button-secondary inline-flex rounded-full px-6 py-4 text-sm font-semibold"
+                >
+                  Lihat Showcase Template
+                </Link>
+              </div>
+
+              <p className="mt-4 text-xs uppercase tracking-[0.24em] text-[var(--color-secondary)]/80 sm:text-sm">
+                Mulai gratis, simpan draft, lalu publish saat semuanya siap.
+              </p>
 
             <div className="md:hidden" />
           </div>
@@ -74,80 +130,52 @@ export default async function MarketingPage() {
         <ScrollReveal>
           <SectionIntro
             eyebrow="Template Showcase"
-            title="Tiga gaya visual yang siap dijual sejak landing page pertama."
+            title="Template unggulan yang siap dipamerkan di landing page."
             description="Setiap template dirancang untuk tetap terasa premium di layar ponsel, sambil memakai data undangan yang sama agar pasangan bebas ganti suasana kapan saja."
             align="center"
           />
         </ScrollReveal>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-[1.18fr_0.82fr_0.82fr]">
-          {TEMPLATE_OPTIONS.map((template, index) => (
-            <ScrollReveal
-              key={template.id}
-              className={`surface-card overflow-hidden rounded-[2.3rem] p-5 sm:p-6 ${
-                index === 0 ? "lg:row-span-2" : ""
-              }`}
-              delay={index * 80}
-            >
-              <div
-                className={`rounded-[1.9rem] p-6 ${
-                  template.id === "ELEGANT_LUXURY"
-                    ? "bg-[linear-gradient(160deg,#1b131c,#2f1e2e_55%,#6b3f63)] text-[#f2e6d8]"
-                    : template.id === "KOREAN_SOFT"
-                      ? "bg-[linear-gradient(160deg,#f8f5f1,#e7e1d8_55%,#cfadc0)] text-[#5d4453]"
-                      : "bg-[linear-gradient(160deg,#ffffff,#f3ede7_58%,#d3af8c)] text-[#2a2425]"
-                }`}
-              >
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] opacity-75">
-                  <span>{template.label}</span>
-                  <span>{index === 0 ? "Featured" : "Editorial"}</span>
-                </div>
-                <div className={`${index === 0 ? "pb-20 pt-[4.5rem] sm:pt-24" : "pb-12 pt-14"} text-center`}>
-                  <p className="font-serif-display text-4xl sm:text-5xl">A & R</p>
-                  <p className="mt-3 text-sm opacity-80">Untuk: Tamu Tercinta</p>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-secondary)]">
-                  {template.tagline}
-                </p>
-                <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
-                  {template.label}
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
-                  {template.description}
-                </p>
-              </div>
-            </ScrollReveal>
+        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {landingTemplates.map((template, index) => (
+            <TemplateShowcaseCard key={template.id} template={template} index={index} />
           ))}
-
-          <ScrollReveal
-            className="rounded-[2.3rem] border border-dashed border-[var(--color-border)] bg-white/40 p-6 lg:col-span-2"
-            delay={220}
-          >
-            <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <div className="max-w-xl">
-                <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
-                  Template Engine
-                </p>
-                <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
-                  Satu data, banyak nuansa visual.
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
-                  Struktur konten disimpan sekali, lalu diterjemahkan ke tampilan yang berbeda
-                  tanpa memaksa pasangan mengulang input.
-                </p>
-              </div>
-              <Link
-                href="/register"
-                className="button-secondary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
-              >
-                Coba di Dashboard
-              </Link>
-            </div>
-          </ScrollReveal>
         </div>
+
+        <ScrollReveal className="mt-8 flex justify-center" delay={220}>
+          <Link
+            href="/templates"
+            className="button-secondary inline-flex rounded-full px-6 py-3 text-sm font-semibold"
+          >
+            Lihat Semua Template
+          </Link>
+        </ScrollReveal>
+
+        <ScrollReveal
+          className="mt-6 rounded-[2.3rem] border border-dashed border-[var(--color-border)] bg-white/40 p-6"
+          delay={260}
+        >
+          <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-end">
+            <div className="max-w-xl">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
+                Template Engine
+              </p>
+              <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
+                Satu data, banyak nuansa visual.
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
+                Struktur konten disimpan sekali, lalu diterjemahkan ke tampilan yang berbeda
+                tanpa memaksa pasangan mengulang input.
+              </p>
+            </div>
+            <Link
+              href="/register"
+              className="button-secondary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              Coba di Dashboard
+            </Link>
+          </div>
+        </ScrollReveal>
       </section>
 
       <section id="pricing" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
