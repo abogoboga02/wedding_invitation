@@ -89,12 +89,11 @@ input,
 select,
 textarea {
   transition:
-    color 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 220ms ease,
-    opacity 180ms ease,
-    transform 220ms ease;
+    color 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 160ms ease,
+    opacity 140ms ease;
 }
 
 .editorial-shell {
@@ -181,8 +180,7 @@ textarea {
 
 .surface-card:hover,
 .surface-panel:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 68px rgba(76, 45, 72, 0.16);
+  box-shadow: 0 20px 52px rgba(67, 38, 63, 0.11);
 }
 
 .button-primary {
@@ -200,8 +198,7 @@ textarea {
 
 .button-primary:hover {
   background: color-mix(in srgb, var(--color-secondary) 90%, black);
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 22px 42px rgba(38, 72, 77, 0.26);
+  box-shadow: 0 18px 36px rgba(38, 72, 77, 0.22);
 }
 
 .button-secondary {
@@ -212,8 +209,7 @@ textarea {
 
 .button-secondary:hover {
   background: white;
-  transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(82, 53, 79, 0.16);
+  box-shadow: 0 14px 32px rgba(82, 53, 79, 0.12);
 }
 
 .animate-fade-up {

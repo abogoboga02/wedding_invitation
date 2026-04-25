@@ -12,7 +12,7 @@ export function DashboardSidebar() {
 
   return (
     <aside className="hidden xl:block">
-      <div className="surface-panel sticky top-6 rounded-[2rem] px-5 py-6">
+      <div className="surface-panel sticky top-24 rounded-[2rem] px-5 py-6">
         <div className="space-y-6">
           {navigationGroups.map((group) => (
             <div key={group.title} className="space-y-3">

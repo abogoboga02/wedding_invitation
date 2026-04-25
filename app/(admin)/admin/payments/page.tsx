@@ -81,6 +81,9 @@ export default async function AdminPaymentsPage() {
                 <p className="mt-1">
                   {payment.status} â€¢ Rp{payment.amountInIdr.toLocaleString("id-ID")}
                 </p>
+                <p className="mt-1">
+                  Template: {payment.templateName ?? "-"} â€¢ Paket: {payment.selectedPackage ?? "-"}
+                </p>
               </div>
             ))
           ) : (
