@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
@@ -25,19 +26,10 @@ const footerLinks = [
   { href: "/login", label: "Masuk" },
 ];
 
-const heroPetals = [
-  { left: "8%", delay: "0s", duration: "15s", size: "14px", drift: "24px", sway: "3.5s" },
-  { left: "24%", delay: "2s", duration: "13s", size: "16px", drift: "-18px", sway: "4.2s" },
-  { left: "41%", delay: "0.8s", duration: "14.2s", size: "15px", drift: "-14px", sway: "3.7s" },
-  { left: "58%", delay: "1.5s", duration: "14.5s", size: "12px", drift: "22px", sway: "3.2s" },
-  { left: "78%", delay: "4s", duration: "16s", size: "18px", drift: "-22px", sway: "4.8s" },
-  { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
-];
-
 const LANDING_TEMPLATE_LIMIT = 8;
 
 export default async function MarketingPage() {
-  const supabase = await createSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user: supabaseUser },
   } = await supabase.auth.getUser();
@@ -82,9 +74,10 @@ export default async function MarketingPage() {
                 Mulai Gratis
               </Link>
             </div>
-          </header>
+          </div>
+        </header>
 
-          <section className="pb-8 pt-14 sm:pt-[4.5rem] lg:pt-24">
+        <section className="pb-8 pt-14 sm:pt-[4.5rem] lg:pt-24">
             <ScrollReveal className="mx-auto max-w-5xl text-center">
               <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-[rgba(200,125,135,0.16)] bg-white/70 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-[var(--color-secondary)] shadow-[0_10px_28px_rgba(141,85,96,0.08)]">
                 <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
@@ -123,8 +116,7 @@ export default async function MarketingPage() {
             </ScrollReveal>
 
             <div className="md:hidden" />
-          </div>
-        </header>
+        </section>
       </div>
 
       <section id="template" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
