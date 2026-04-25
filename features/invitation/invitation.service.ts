@@ -1,4 +1,5 @@
 import type { PostgrestMaybeSingleResponse, SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
@@ -36,16 +37,143 @@ type DashboardInvitationSummaryRow = InvitationRow & {
     | null;
 };
 
+const INVITATION_BASE_SELECT = `
+  id,
+  owner_id,
+  template,
+  status,
+  couple_slug,
+  partner_one_name,
+  partner_two_name,
+  headline,
+  subheadline,
+  story,
+  closing_note,
+  template_config,
+  cover_image_url,
+  cover_image_alt,
+  cover_image_storage_path,
+  music_url,
+  music_original_name,
+  music_mime_type,
+  music_size,
+  music_storage_path,
+  published_at,
+  created_at,
+  updated_at
+`;
+
 const DASHBOARD_INVITATION_SUMMARY_SELECT = `
-  *,
-  invitation_settings (*),
-  event_slots (*),
-  gallery_images (*),
+  ${INVITATION_BASE_SELECT},
+  invitation_settings (
+    id,
+    invitation_id,
+    locale,
+    timezone,
+    is_rsvp_enabled,
+    is_wish_enabled,
+    auto_play_music,
+    preferred_send_channel,
+    created_at,
+    updated_at
+  ),
+  event_slots (
+    id,
+    invitation_id,
+    label,
+    starts_at,
+    venue_name,
+    address,
+    maps_url,
+    latitude,
+    longitude,
+    place_name,
+    formatted_address,
+    google_maps_url,
+    sort_order,
+    created_at,
+    updated_at
+  ),
+  gallery_images (
+    id,
+    invitation_id,
+    image_url,
+    storage_path,
+    alt_text,
+    sort_order,
+    created_at
+  ),
   guests (
-    *,
-    rsvps (*),
-    wishes (*)
+    id,
+    invitation_id,
+    name,
+    guest_slug,
+    phone,
+    email,
+    source,
+    created_at,
+    updated_at,
+    rsvps (
+      id,
+      guest_id,
+      respondent_name,
+      status,
+      attendees,
+      note,
+      responded_at,
+      updated_at
+    ),
+    wishes (
+      id,
+      invitation_id,
+      guest_id,
+      message,
+      is_approved,
+      created_at,
+      updated_at
+    )
   )
+`;
+
+const DASHBOARD_INVITATION_SUMMARY_CACHE_TAG = "dashboard-invitation-summary";
+const DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG = "dashboard-analytics-summary";
+const INVITATION_SETTING_SELECT = `
+  id,
+  invitation_id,
+  locale,
+  timezone,
+  is_rsvp_enabled,
+  is_wish_enabled,
+  auto_play_music,
+  preferred_send_channel,
+  created_at,
+  updated_at
+`;
+const EVENT_SLOT_SELECT = `
+  id,
+  invitation_id,
+  label,
+  starts_at,
+  venue_name,
+  address,
+  maps_url,
+  latitude,
+  longitude,
+  place_name,
+  formatted_address,
+  google_maps_url,
+  sort_order,
+  created_at,
+  updated_at
+`;
+const GALLERY_IMAGE_SELECT = `
+  id,
+  invitation_id,
+  image_url,
+  storage_path,
+  alt_text,
+  sort_order,
+  created_at
 `;
 
 export type InvitationRecord = {
@@ -389,7 +517,7 @@ async function getInvitationBaseByOwnerId(userId: string, client: SupabaseDbClie
   const invitation = await unwrapMaybeSingle<InvitationRow>(
     await client
       .from("invitations")
-      .select("*")
+      .select(INVITATION_BASE_SELECT)
       .eq("owner_id", userId)
       .maybeSingle(),
     "Gagal mengambil data invitation.",
@@ -403,7 +531,7 @@ async function getInvitationRelations(invitationId: string, client: SupabaseDbCl
     unwrapMaybeSingle<InvitationSettingRow>(
       await client
         .from("invitation_settings")
-        .select("*")
+        .select(INVITATION_SETTING_SELECT)
         .eq("invitation_id", invitationId)
         .maybeSingle(),
       "Gagal mengambil pengaturan invitation.",
@@ -411,7 +539,7 @@ async function getInvitationRelations(invitationId: string, client: SupabaseDbCl
     unwrapList<EventSlotRow>(
       await client
         .from("event_slots")
-        .select("*")
+        .select(EVENT_SLOT_SELECT)
         .eq("invitation_id", invitationId)
         .order("sort_order", { ascending: true }),
       "Gagal mengambil jadwal acara invitation.",
@@ -419,7 +547,7 @@ async function getInvitationRelations(invitationId: string, client: SupabaseDbCl
     unwrapList<GalleryImageRow>(
       await client
         .from("gallery_images")
-        .select("*")
+        .select(GALLERY_IMAGE_SELECT)
         .eq("invitation_id", invitationId)
         .order("sort_order", { ascending: true }),
       "Gagal mengambil galeri invitation.",
@@ -449,7 +577,7 @@ async function ensureInvitationSetting(invitationId: string, client: SupabaseDbC
   const existing = await unwrapMaybeSingle<InvitationSettingRow>(
     await client
       .from("invitation_settings")
-      .select("*")
+      .select(INVITATION_SETTING_SELECT)
       .eq("invitation_id", invitationId)
       .maybeSingle(),
     "Gagal mengambil pengaturan invitation.",
@@ -465,7 +593,7 @@ async function ensureInvitationSetting(invitationId: string, client: SupabaseDbC
       .insert({
         invitation_id: invitationId,
       })
-      .select("*")
+      .select(INVITATION_SETTING_SELECT)
       .single(),
     "Gagal membuat pengaturan invitation default.",
   );
@@ -521,7 +649,7 @@ export async function createDefaultInvitation(
         closing_note: generatedCopy.legacy.closingNote,
         template_config: templateConfig as Json,
       })
-      .select("*")
+      .select(INVITATION_BASE_SELECT)
       .single(),
     "Gagal membuat invitation default.",
   );
@@ -579,18 +707,42 @@ export async function getOrCreateDashboardInvitation(
 }
 
 export async function getDashboardInvitationSummary(userId: string, client?: SupabaseDbClient) {
-  const readableClient = await resolveServerClient(client);
-  const response = await readableClient
-    .from("invitations")
-    .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
-    .eq("owner_id", userId)
-    .maybeSingle();
-  const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
-    response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
-    "Gagal mengambil ringkasan invitation.",
+  if (client) {
+    const response = await client
+      .from("invitations")
+      .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
+      .eq("owner_id", userId)
+      .maybeSingle();
+    const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
+      response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
+      "Gagal mengambil ringkasan invitation.",
+    );
+
+    return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+  }
+
+  const getCachedDashboardInvitationSummary = unstable_cache(
+    async (cacheUserId: string) => {
+      const adminClient = resolveAdminClient();
+      const response = await adminClient
+        .from("invitations")
+        .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
+        .eq("owner_id", cacheUserId)
+        .maybeSingle();
+      const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
+        response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
+        "Gagal mengambil ringkasan invitation.",
+      );
+
+      return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+    },
+    ["invitation-summary-by-user"],
+    {
+      tags: [DASHBOARD_INVITATION_SUMMARY_CACHE_TAG],
+    },
   );
 
-  return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+  return getCachedDashboardInvitationSummary(userId);
 }
 
 export function mapInvitationToRenderModel(
@@ -707,19 +859,35 @@ export async function getDashboardAnalyticsSummary(
     return null;
   }
 
-  const [{ count: totalInvitationOpens }, viewLogs] = await Promise.all([
-    readableClient
-      .from("invitation_view_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("invitation_id", invitation.id),
-    unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
-      await readableClient
-        .from("invitation_view_logs")
-        .select("guest_id")
-        .eq("invitation_id", invitation.id),
-      "Gagal mengambil log pembukaan invitation.",
-    ),
-  ]);
+  const getCachedViewLogStats = unstable_cache(
+    async (invitationId: string) => {
+      const adminClient = resolveAdminClient();
+      const [{ count: totalInvitationOpens }, viewLogs] = await Promise.all([
+        adminClient
+          .from("invitation_view_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("invitation_id", invitationId),
+        unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
+          await adminClient
+            .from("invitation_view_logs")
+            .select("guest_id")
+            .eq("invitation_id", invitationId),
+          "Gagal mengambil log pembukaan invitation.",
+        ),
+      ]);
+
+      return {
+        totalInvitationOpens: totalInvitationOpens ?? 0,
+        uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
+      };
+    },
+    ["dashboard-view-log-stats"],
+    {
+      tags: [DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG],
+    },
+  );
+
+  const viewLogStats = await getCachedViewLogStats(invitation.id);
 
   const totalGuests = invitation.guests.length;
   const totalRsvps = invitation.guests.filter((guest) => Boolean(guest.rsvp)).length;
@@ -731,8 +899,8 @@ export async function getDashboardAnalyticsSummary(
     totalGuests,
     totalPersonalLinks: totalGuests,
     totalRsvps,
-    totalInvitationOpens: totalInvitationOpens ?? 0,
-    uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
+    totalInvitationOpens: viewLogStats.totalInvitationOpens,
+    uniqueGuestOpens: viewLogStats.uniqueGuestOpens,
     rsvpBreakdown: {
       attending,
       declined,
@@ -740,6 +908,11 @@ export async function getDashboardAnalyticsSummary(
     },
   };
 }
+
+export const dashboardCacheTags = {
+  invitationSummary: DASHBOARD_INVITATION_SUMMARY_CACHE_TAG,
+  analyticsSummary: DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG,
+} as const;
 
 export function validateInvitationPublishability(invitation: {
   partnerOneName: string;
