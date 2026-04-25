@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { prisma } from "@/lib/db/prisma";
+import { getAdminInvitations } from "@/features/admin/admin.service";
 import { formatAdminDateTime } from "@/lib/utils/date";
 
 import { toggleInvitationStatusAction } from "../_actions/admin-actions";
@@ -9,26 +9,7 @@ import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminInvitationsPage() {
   await connection();
-
-  const invitations = await prisma.invitation.findMany({
-    include: {
-      owner: {
-        select: {
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          guests: true,
-          wishes: true,
-        },
-      },
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-  });
+  const invitations = await getAdminInvitations();
 
   return (
     <div className="space-y-6">
@@ -54,8 +35,8 @@ export default async function AdminInvitationsPage() {
                       /{invitation.coupleSlug} | {invitation.owner.name ?? invitation.owner.email}
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                      Template {invitation.template} | {invitation._count.guests} tamu |{" "}
-                      {invitation._count.wishes} ucapan | Update{" "}
+                      Template {invitation.template} | {invitation.guestCount} tamu |{" "}
+                      {invitation.wishCount} ucapan | Update{" "}
                       {formatAdminDateTime(invitation.updatedAt)}
                     </p>
                   </div>

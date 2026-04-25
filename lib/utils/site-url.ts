@@ -1,5 +1,9 @@
 const DEFAULT_SITE_URL = "http://localhost:3000";
 
+function getConfiguredSiteUrl() {
+  return process.env.APP_URL ?? process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
+}
+
 function hasProtocol(value: string) {
   return /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(value);
 }
@@ -29,11 +33,11 @@ function normalizeSiteUrl(value?: string | null) {
 }
 
 export function getSiteUrl() {
-  return normalizeSiteUrl(process.env.NEXTAUTH_URL).toString().replace(/\/$/, "");
+  return normalizeSiteUrl(getConfiguredSiteUrl()).toString().replace(/\/$/, "");
 }
 
 export function getSiteMetadataBase() {
-  return normalizeSiteUrl(process.env.NEXTAUTH_URL);
+  return normalizeSiteUrl(getConfiguredSiteUrl());
 }
 
 export function buildSiteHref(pathname = "/") {

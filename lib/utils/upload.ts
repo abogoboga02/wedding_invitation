@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseStorageBucket } from "@/lib/supabase/helpers";
 
 export type UploadKind = "cover" | "gallery" | "music";
 
 export type StoredUploadAsset = {
   url: string;
+  storagePath: string;
   mimeType: string;
   size: number;
   originalName: string;
@@ -94,30 +97,30 @@ export async function storeUploadedFiles({
   }
 
   const rule = getUploadValidationRule(kind);
-  const uploadDirectory = path.join(
-    process.cwd(),
-    "public",
-    "uploads",
-    ownerId,
-    invitationId,
-    rule.directory,
-  );
-
-  await mkdir(uploadDirectory, { recursive: true });
-
+  const bucket = getSupabaseStorageBucket();
+  const admin = getSupabaseAdminClient();
   const assets: StoredUploadAsset[] = [];
 
   for (const file of files) {
     validateUploadFile(file, kind);
 
     const safeFilename = buildSafeFilename(file);
+    const storagePath = `${ownerId}/${invitationId}/${rule.directory}/${safeFilename}`;
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const targetPath = path.join(uploadDirectory, safeFilename);
+    const { error } = await admin.storage.from(bucket).upload(storagePath, fileBuffer, {
+      contentType: file.type,
+      upsert: false,
+    });
 
-    await writeFile(targetPath, fileBuffer);
+    if (error) {
+      throw new Error(`Upload ke storage gagal. ${error.message}`);
+    }
+
+    const { data } = admin.storage.from(bucket).getPublicUrl(storagePath);
 
     assets.push({
-      url: `/uploads/${ownerId}/${invitationId}/${rule.directory}/${safeFilename}`,
+      url: data.publicUrl,
+      storagePath,
       mimeType: file.type,
       size: file.size,
       originalName: file.name,
@@ -125,4 +128,20 @@ export async function storeUploadedFiles({
   }
 
   return assets;
+}
+
+export async function deleteStoredFiles(storagePaths: Array<string | null | undefined>) {
+  const paths = [...new Set(storagePaths.filter((item): item is string => Boolean(item?.trim())))];
+
+  if (paths.length === 0) {
+    return;
+  }
+
+  const admin = getSupabaseAdminClient();
+  const bucket = getSupabaseStorageBucket();
+  const { error } = await admin.storage.from(bucket).remove(paths);
+
+  if (error) {
+    throw new Error(`Gagal menghapus file lama di storage. ${error.message}`);
+  }
 }

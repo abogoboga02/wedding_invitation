@@ -1,38 +1,12 @@
 import { connection } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
+import { getAdminPaymentsData } from "@/features/admin/admin.service";
 
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminPaymentsPage() {
   await connection();
-
-  const [plans, payments, subscriptions] = await Promise.all([
-    prisma.plan.findMany({
-      orderBy: { sortOrder: "asc" },
-    }),
-    prisma.paymentOrder.findMany({
-      include: {
-        user: {
-          select: { email: true, name: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-    prisma.userSubscription.findMany({
-      include: {
-        user: {
-          select: { email: true, name: true },
-        },
-        plan: {
-          select: { name: true, tier: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-  ]);
+  const { plans, payments, subscriptions } = await getAdminPaymentsData();
 
   return (
     <div className="space-y-6">
@@ -53,7 +27,9 @@ export default async function AdminPaymentsPage() {
                 {plan.description}
               </p>
               <p className="mt-4 text-sm font-medium text-[var(--color-text-primary)]">
-                {plan.priceInIdr === 0 ? "Custom / Free" : `Rp${plan.priceInIdr.toLocaleString("id-ID")}`}
+                {plan.priceInIdr === 0
+                  ? "Custom / Free"
+                  : `Rp${plan.priceInIdr.toLocaleString("id-ID")}`}
               </p>
             </article>
           ))}
@@ -72,10 +48,10 @@ export default async function AdminPaymentsPage() {
                 className="rounded-[1.5rem] bg-[var(--color-surface-alt)] px-4 py-4 text-sm text-[var(--color-text-secondary)]"
               >
                 <p className="font-medium text-[var(--color-text-primary)]">
-                  {subscription.user.name ?? subscription.user.email}
+                  {subscription.userName ?? subscription.userEmail}
                 </p>
                 <p className="mt-1">
-                  {subscription.plan.name} • {subscription.status}
+                  {subscription.planName} â€¢ {subscription.status}
                 </p>
               </div>
             ))
@@ -100,10 +76,10 @@ export default async function AdminPaymentsPage() {
                 className="rounded-[1.5rem] bg-[var(--color-surface-alt)] px-4 py-4 text-sm text-[var(--color-text-secondary)]"
               >
                 <p className="font-medium text-[var(--color-text-primary)]">
-                  {payment.user.name ?? payment.user.email}
+                  {payment.userName ?? payment.userEmail}
                 </p>
                 <p className="mt-1">
-                  {payment.status} • Rp{payment.amountInIdr.toLocaleString("id-ID")}
+                  {payment.status} â€¢ Rp{payment.amountInIdr.toLocaleString("id-ID")}
                 </p>
               </div>
             ))

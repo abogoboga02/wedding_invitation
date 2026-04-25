@@ -1,13 +1,13 @@
-import { auth } from "@/auth";
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 
 import { TemplateSelectionGrid } from "./_components/TemplateSelectionGrid";
 
 export default async function DashboardTemplatesPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
 
   if (!invitation) {
     return null;

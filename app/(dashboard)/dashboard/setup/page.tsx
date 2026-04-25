@@ -1,14 +1,14 @@
 import Link from "next/link";
 
-import { auth } from "@/auth";
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 
 import { SetupInvitationForm } from "./_components/SetupInvitationForm";
 
 export default async function DashboardSetupPage() {
-  const session = await auth();
-  const invitation = await getOrCreateDashboardInvitation(session!.user.id, session?.user?.name);
+  const user = await requireClientUser();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
 
   const activeTemplateLabel =
     TEMPLATE_OPTIONS.find((template) => template.id === invitation.template)?.label ??

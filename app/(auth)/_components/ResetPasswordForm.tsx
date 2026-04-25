@@ -13,14 +13,13 @@ type ResetPasswordFormProps = {
     state: AuthActionState,
     formData: FormData,
   ) => Promise<AuthActionState>;
-  token?: string;
 };
 
-type ClientErrors = Partial<Record<"token" | "password" | "confirmPassword", string>>;
+type ClientErrors = Partial<Record<"password" | "confirmPassword", string>>;
 
 const initialState: AuthActionState = {};
 
-export function ResetPasswordForm({ action, token }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ action }: ResetPasswordFormProps) {
   const [state, formAction] = useActionState(action, initialState);
   const [clientErrors, setClientErrors] = useState<ClientErrors>({});
 
@@ -31,7 +30,6 @@ export function ResetPasswordForm({ action, token }: ResetPasswordFormProps) {
       onSubmit={(event) => {
         const formData = new FormData(event.currentTarget);
         const parsed = resetPasswordSchema.safeParse({
-          token: formData.get("token"),
           password: formData.get("password"),
           confirmPassword: formData.get("confirmPassword"),
         });
@@ -40,7 +38,6 @@ export function ResetPasswordForm({ action, token }: ResetPasswordFormProps) {
           event.preventDefault();
           const errors = parsed.error.flatten().fieldErrors;
           setClientErrors({
-            token: errors.token?.[0],
             password: errors.password?.[0],
             confirmPassword: errors.confirmPassword?.[0],
           });
@@ -50,24 +47,6 @@ export function ResetPasswordForm({ action, token }: ResetPasswordFormProps) {
         setClientErrors({});
       }}
     >
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">Token reset</span>
-        <input
-          name="token"
-          defaultValue={token ?? ""}
-          required
-          placeholder="Masukkan token reset"
-          className={`w-full rounded-[1.4rem] border bg-white px-4 py-3.5 text-sm outline-none ${
-            clientErrors.token
-              ? "border-[var(--color-error)]"
-              : "border-[var(--color-border)] focus:border-[var(--color-primary-strong)]"
-          }`}
-        />
-        {clientErrors.token ? (
-          <p className="text-sm text-[var(--color-error)]">{clientErrors.token}</p>
-        ) : null}
-      </label>
-
       <label className="block space-y-2">
         <span className="text-sm font-medium text-[var(--color-text-primary)]">Password baru</span>
         <input

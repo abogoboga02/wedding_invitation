@@ -1,4 +1,4 @@
-import type { InvitationStatus, InvitationTemplate, RsvpStatus } from "@prisma/client";
+import type { InvitationStatus, InvitationTemplate, RsvpStatus } from "@/lib/domain/types";
 
 import type { InvitationTemplateConfigValues } from "./form/config";
 import type { InvitationTemplateSlug } from "./templates/template-slugs";

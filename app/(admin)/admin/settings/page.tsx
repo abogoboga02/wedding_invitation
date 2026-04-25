@@ -1,21 +1,13 @@
 import { connection } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
+import { getAdminSettingsSnapshot } from "@/features/admin/admin.service";
 
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminSettingsPage() {
   await connection();
-
-  const [invitationSettingsCount, rsvpEnabledCount, wishEnabledCount] = await Promise.all([
-    prisma.invitationSetting.count(),
-    prisma.invitationSetting.count({
-      where: { isRsvpEnabled: true },
-    }),
-    prisma.invitationSetting.count({
-      where: { isWishEnabled: true },
-    }),
-  ]);
+  const { invitationSettingsCount, rsvpEnabledCount, wishEnabledCount } =
+    await getAdminSettingsSnapshot();
 
   return (
     <div className="space-y-6">

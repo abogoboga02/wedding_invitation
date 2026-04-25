@@ -1,23 +1,15 @@
 import { connection } from "next/server";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { getAdminTemplateUsage } from "@/features/admin/admin.service";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
-import { prisma } from "@/lib/db/prisma";
 
 import { syncPlanCatalogAction } from "../_actions/admin-actions";
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminTemplatesPage() {
   await connection();
-
-  const usage = await prisma.invitation.groupBy({
-    by: ["template"],
-    _count: {
-      template: true,
-    },
-  });
-
-  const usageMap = new Map(usage.map((item) => [item.template, item._count.template]));
+  const usageMap = await getAdminTemplateUsage();
 
   return (
     <div className="space-y-6">

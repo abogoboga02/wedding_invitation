@@ -1,17 +1,17 @@
-import { auth } from "@/auth";
 import {
   getDashboardAnalyticsSummary,
   getDashboardInvitationSummary,
 } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 import { DashboardSectionCard } from "../_components/DashboardSectionCard";
 import { DashboardStatCard } from "../_components/DashboardStatCard";
 
 export default async function DashboardAnalyticsPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
-  const analytics = await getDashboardAnalyticsSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
+  const analytics = await getDashboardAnalyticsSummary(user.id);
 
   if (!invitation || !analytics) {
     return null;

@@ -1,6 +1,6 @@
-import type { InvitationTemplate } from "@prisma/client";
 import { z } from "zod";
 
+import type { InvitationTemplate } from "@/lib/domain/types";
 import {
   getMusicPresetById,
   MUSIC_MOOD_LABELS,

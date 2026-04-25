@@ -1,26 +1,33 @@
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
+import type { AuthenticatedAppUser } from "@/lib/domain/types";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-type AuthenticatedUser = {
-  id: string;
-  name?: string | null;
-  email?: string | null;
-  role: "ADMIN" | "CLIENT";
-};
+async function getAuthenticatedSessionUser(): Promise<AuthenticatedAppUser> {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
 
-async function getAuthenticatedSessionUser(): Promise<AuthenticatedUser> {
-  const session = await auth();
-
-  if (!session?.user?.id) {
+  if (!authUser?.id) {
     redirect("/login");
   }
 
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id, name, email, role")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
   return {
-    id: session.user.id,
-    name: session.user.name,
-    email: session.user.email,
-    role: session.user.role,
+    id: authUser.id,
+    name: profile?.name ?? authUser.user_metadata.name ?? null,
+    email: profile?.email ?? authUser.email ?? null,
+    role:
+      profile?.role ??
+      (authUser.app_metadata.role === "ADMIN" || authUser.user_metadata.role === "ADMIN"
+        ? "ADMIN"
+        : "CLIENT"),
   };
 }
 

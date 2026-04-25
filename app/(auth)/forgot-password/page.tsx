@@ -17,8 +17,8 @@ export default function ForgotPasswordPage() {
           Minta tautan reset password
         </h1>
         <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-          Masukkan email akun Anda. Untuk MVP, alur email masih placeholder, tetapi UI dan state
-          reset sudah siap diintegrasikan ke backend final.
+          Masukkan email akun Anda. Sistem akan memakai flow reset password Supabase dan
+          mengarahkan Anda kembali ke halaman ganti password setelah tautan dibuka.
         </p>
       </div>
 

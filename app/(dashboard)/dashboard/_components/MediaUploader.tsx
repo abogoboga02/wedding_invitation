@@ -7,6 +7,7 @@ import type { UploadKind } from "@/lib/utils/upload";
 
 type MediaAsset = {
   url: string;
+  storagePath?: string;
   mimeType?: string;
   size?: number;
   originalName?: string;
@@ -19,7 +20,7 @@ type MediaUploaderProps = {
   kind: UploadKind;
   multiple?: boolean;
   initialAssets?: MediaAsset[];
-  metadataFieldNames?: Partial<Record<"originalName" | "mimeType" | "size", string>>;
+  metadataFieldNames?: Partial<Record<"originalName" | "mimeType" | "size" | "storagePath", string>>;
 };
 
 function buttonClass() {
@@ -266,6 +267,13 @@ export function MediaUploader({
                   type="hidden"
                   name={metadataFieldNames.size}
                   value={asset.size?.toString() ?? ""}
+                />
+              ) : null}
+              {metadataFieldNames?.storagePath ? (
+                <input
+                  type="hidden"
+                  name={metadataFieldNames.storagePath}
+                  value={asset.storagePath ?? ""}
                 />
               ) : null}
             </div>

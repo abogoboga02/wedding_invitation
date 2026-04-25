@@ -31,7 +31,6 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(6, "Token reset tidak valid."),
     password: z.string().min(8, "Password minimal 8 karakter."),
     confirmPassword: z.string().min(8, "Konfirmasi password minimal 8 karakter."),
   })

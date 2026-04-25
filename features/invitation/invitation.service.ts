@@ -1,51 +1,141 @@
-import type {
-  EventSlot,
-  GalleryImage,
-  Guest,
-  Invitation,
-  InvitationTemplate,
-  Prisma,
-  Rsvp,
-  Wish,
-} from "@prisma/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
-import { prisma } from "@/lib/db/prisma";
-import { buildCoupleSlug, generateUniqueSlug } from "@/lib/utils/slug";
+import type { InvitationTemplate, InvitationStatus, RsvpStatus } from "@/lib/domain/types";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { Database, Json, TableRow } from "@/lib/supabase/database.types";
+import { unwrapList, unwrapMaybeSingle, unwrapSingle } from "@/lib/supabase/helpers";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { buildGoogleMapsUrl, isFiniteCoordinate } from "@/lib/utils/location";
+import { buildCoupleSlug, generateUniqueSlug } from "@/lib/utils/slug";
 
 import type { InvitationRenderModel } from "./invitation.types";
 import { getInvitationTemplateSlug } from "./templates/template-slugs";
 
-const invitationInclude = {
-  setting: true,
-  eventSlots: {
-    orderBy: { sortOrder: "asc" },
-  },
-  galleryImages: {
-    orderBy: { sortOrder: "asc" },
-  },
-} satisfies Prisma.InvitationInclude;
+type SupabaseDbClient = SupabaseClient<Database>;
+type InvitationRow = TableRow<"invitations">;
+type InvitationSettingRow = TableRow<"invitation_settings">;
+type EventSlotRow = TableRow<"event_slots">;
+type GalleryImageRow = TableRow<"gallery_images">;
+type GuestRow = TableRow<"guests">;
+type RsvpRow = TableRow<"rsvps">;
+type WishRow = TableRow<"wishes">;
 
-export type InvitationWithRelations = Prisma.InvitationGetPayload<{
-  include: typeof invitationInclude;
-}>;
+export type InvitationRecord = {
+  id: string;
+  ownerId: string;
+  template: InvitationTemplate;
+  status: InvitationStatus;
+  coupleSlug: string;
+  partnerOneName: string;
+  partnerTwoName: string;
+  headline: string;
+  subheadline: string;
+  story: string;
+  closingNote: string;
+  templateConfig: Json | null;
+  coverImage: string | null;
+  coverImageAlt: string | null;
+  coverImageStoragePath: string | null;
+  musicUrl: string | null;
+  musicOriginalName: string | null;
+  musicMimeType: string | null;
+  musicSize: number | null;
+  musicStoragePath: string | null;
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-const dashboardInvitationInclude = {
-  ...invitationInclude,
-  guests: {
-    include: {
-      rsvp: true,
-      wish: true,
-    },
-    orderBy: { createdAt: "desc" },
-  },
-} satisfies Prisma.InvitationInclude;
+export type InvitationSettingRecord = {
+  id: string;
+  invitationId: string;
+  locale: string;
+  timezone: string;
+  isRsvpEnabled: boolean;
+  isWishEnabled: boolean;
+  autoPlayMusic: boolean;
+  preferredSendChannel: Database["public"]["Tables"]["invitation_settings"]["Row"]["preferred_send_channel"];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-export type DashboardInvitationSummary = Prisma.InvitationGetPayload<{
-  include: typeof dashboardInvitationInclude;
-}>;
+export type EventSlotRecord = {
+  id: string;
+  invitationId: string;
+  label: string;
+  startsAt: Date;
+  venueName: string;
+  address: string;
+  mapsUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  placeName: string | null;
+  formattedAddress: string | null;
+  googleMapsUrl: string | null;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type GalleryImageRecord = {
+  id: string;
+  invitationId: string;
+  imageUrl: string;
+  storagePath: string | null;
+  altText: string | null;
+  sortOrder: number;
+  createdAt: Date;
+};
+
+export type GuestRecord = {
+  id: string;
+  invitationId: string;
+  name: string;
+  guestSlug: string;
+  phone: string | null;
+  email: string | null;
+  source: Database["public"]["Tables"]["guests"]["Row"]["source"];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type RsvpRecord = {
+  id: string;
+  guestId: string;
+  respondentName: string | null;
+  status: RsvpStatus;
+  attendees: number;
+  note: string | null;
+  respondedAt: Date;
+  updatedAt: Date;
+};
+
+export type WishRecord = {
+  id: string;
+  invitationId: string;
+  guestId: string;
+  message: string;
+  isApproved: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InvitationWithRelations = InvitationRecord & {
+  setting: InvitationSettingRecord | null;
+  eventSlots: EventSlotRecord[];
+  galleryImages: GalleryImageRecord[];
+};
+
+export type DashboardInvitationGuest = GuestRecord & {
+  rsvp: RsvpRecord | null;
+  wish: WishRecord | null;
+};
+
+export type DashboardInvitationSummary = InvitationWithRelations & {
+  guests: DashboardInvitationGuest[];
+};
 
 export type PublicWish = {
   id: string;
@@ -90,7 +180,281 @@ function getDefaultTemplateConfig(template: InvitationTemplate) {
   return normalizeTemplateConfig(template, null);
 }
 
-export async function createDefaultInvitation(userId: string, displayName = "Pengantin") {
+function mapInvitationRow(row: InvitationRow): InvitationRecord {
+  return {
+    id: row.id,
+    ownerId: row.owner_id,
+    template: row.template,
+    status: row.status,
+    coupleSlug: row.couple_slug,
+    partnerOneName: row.partner_one_name,
+    partnerTwoName: row.partner_two_name,
+    headline: row.headline,
+    subheadline: row.subheadline,
+    story: row.story,
+    closingNote: row.closing_note,
+    templateConfig: row.template_config,
+    coverImage: row.cover_image_url,
+    coverImageAlt: row.cover_image_alt,
+    coverImageStoragePath: row.cover_image_storage_path,
+    musicUrl: row.music_url,
+    musicOriginalName: row.music_original_name,
+    musicMimeType: row.music_mime_type,
+    musicSize: row.music_size,
+    musicStoragePath: row.music_storage_path,
+    publishedAt: row.published_at ? new Date(row.published_at) : null,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapInvitationSettingRow(row: InvitationSettingRow): InvitationSettingRecord {
+  return {
+    id: row.id,
+    invitationId: row.invitation_id,
+    locale: row.locale,
+    timezone: row.timezone,
+    isRsvpEnabled: row.is_rsvp_enabled,
+    isWishEnabled: row.is_wish_enabled,
+    autoPlayMusic: row.auto_play_music,
+    preferredSendChannel: row.preferred_send_channel,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapEventSlotRow(row: EventSlotRow): EventSlotRecord {
+  return {
+    id: row.id,
+    invitationId: row.invitation_id,
+    label: row.label,
+    startsAt: new Date(row.starts_at),
+    venueName: row.venue_name,
+    address: row.address,
+    mapsUrl: row.maps_url,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    placeName: row.place_name,
+    formattedAddress: row.formatted_address,
+    googleMapsUrl: row.google_maps_url,
+    sortOrder: row.sort_order,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapGalleryImageRow(row: GalleryImageRow): GalleryImageRecord {
+  return {
+    id: row.id,
+    invitationId: row.invitation_id,
+    imageUrl: row.image_url,
+    storagePath: row.storage_path,
+    altText: row.alt_text,
+    sortOrder: row.sort_order,
+    createdAt: new Date(row.created_at),
+  };
+}
+
+function mapGuestRow(row: GuestRow): GuestRecord {
+  return {
+    id: row.id,
+    invitationId: row.invitation_id,
+    name: row.name,
+    guestSlug: row.guest_slug,
+    phone: row.phone,
+    email: row.email,
+    source: row.source,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapRsvpRow(row: RsvpRow): RsvpRecord {
+  return {
+    id: row.id,
+    guestId: row.guest_id,
+    respondentName: row.respondent_name,
+    status: row.status,
+    attendees: row.attendees,
+    note: row.note,
+    respondedAt: new Date(row.responded_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+function mapWishRow(row: WishRow): WishRecord {
+  return {
+    id: row.id,
+    invitationId: row.invitation_id,
+    guestId: row.guest_id,
+    message: row.message,
+    isApproved: row.is_approved,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+async function resolveServerClient(client?: SupabaseDbClient) {
+  return client ?? (await createServerSupabaseClient());
+}
+
+function resolveAdminClient(client?: SupabaseDbClient) {
+  return client ?? getSupabaseAdminClient();
+}
+
+async function getSlugLookupClient(client: SupabaseDbClient) {
+  try {
+    return getSupabaseAdminClient();
+  } catch {
+    return client;
+  }
+}
+
+async function getInvitationBaseByOwnerId(userId: string, client: SupabaseDbClient) {
+  const invitation = await unwrapMaybeSingle<InvitationRow>(
+    await client
+      .from("invitations")
+      .select("*")
+      .eq("owner_id", userId)
+      .maybeSingle(),
+    "Gagal mengambil data invitation.",
+  );
+
+  return invitation ? mapInvitationRow(invitation) : null;
+}
+
+async function getInvitationRelations(invitationId: string, client: SupabaseDbClient) {
+  const [settingRow, eventSlotRows, galleryRows] = await Promise.all([
+    unwrapMaybeSingle<InvitationSettingRow>(
+      await client
+        .from("invitation_settings")
+        .select("*")
+        .eq("invitation_id", invitationId)
+        .maybeSingle(),
+      "Gagal mengambil pengaturan invitation.",
+    ),
+    unwrapList<EventSlotRow>(
+      await client
+        .from("event_slots")
+        .select("*")
+        .eq("invitation_id", invitationId)
+        .order("sort_order", { ascending: true }),
+      "Gagal mengambil jadwal acara invitation.",
+    ),
+    unwrapList<GalleryImageRow>(
+      await client
+        .from("gallery_images")
+        .select("*")
+        .eq("invitation_id", invitationId)
+        .order("sort_order", { ascending: true }),
+      "Gagal mengambil galeri invitation.",
+    ),
+  ]);
+
+  return {
+    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
+    eventSlots: eventSlotRows.map(mapEventSlotRow),
+    galleryImages: galleryRows.map(mapGalleryImageRow),
+  };
+}
+
+async function getGuestsWithRelations(invitationId: string, client: SupabaseDbClient) {
+  const guestRows = await unwrapList<GuestRow>(
+    await client
+      .from("guests")
+      .select("*")
+      .eq("invitation_id", invitationId)
+      .order("created_at", { ascending: false }),
+    "Gagal mengambil guest list invitation.",
+  );
+  const guests = guestRows.map(mapGuestRow);
+
+  if (guests.length === 0) {
+    return [] satisfies DashboardInvitationGuest[];
+  }
+
+  const guestIds = guests.map((guest) => guest.id);
+  const [rsvpRows, wishRows] = await Promise.all([
+    unwrapList<RsvpRow>(
+      await client.from("rsvps").select("*").in("guest_id", guestIds),
+      "Gagal mengambil data RSVP invitation.",
+    ),
+    unwrapList<WishRow>(
+      await client.from("wishes").select("*").in("guest_id", guestIds),
+      "Gagal mengambil ucapan invitation.",
+    ),
+  ]);
+
+  const rsvpByGuestId = new Map(rsvpRows.map((row) => [row.guest_id, mapRsvpRow(row)]));
+  const wishByGuestId = new Map(wishRows.map((row) => [row.guest_id, mapWishRow(row)]));
+
+  return guests.map((guest) => ({
+    ...guest,
+    rsvp: rsvpByGuestId.get(guest.id) ?? null,
+    wish: wishByGuestId.get(guest.id) ?? null,
+  }));
+}
+
+async function hydrateInvitationSummary(
+  invitation: InvitationRecord,
+  client: SupabaseDbClient,
+): Promise<DashboardInvitationSummary> {
+  const relations = await getInvitationRelations(invitation.id, client);
+  const guests = await getGuestsWithRelations(invitation.id, client);
+
+  return {
+    ...invitation,
+    ...relations,
+    guests,
+  };
+}
+
+async function hydrateInvitationWithRelations(
+  invitation: InvitationRecord,
+  client: SupabaseDbClient,
+): Promise<InvitationWithRelations> {
+  const relations = await getInvitationRelations(invitation.id, client);
+
+  return {
+    ...invitation,
+    ...relations,
+  };
+}
+
+async function ensureInvitationSetting(invitationId: string, client: SupabaseDbClient) {
+  const existing = await unwrapMaybeSingle<InvitationSettingRow>(
+    await client
+      .from("invitation_settings")
+      .select("*")
+      .eq("invitation_id", invitationId)
+      .maybeSingle(),
+    "Gagal mengambil pengaturan invitation.",
+  );
+
+  if (existing) {
+    return mapInvitationSettingRow(existing);
+  }
+
+  const inserted = await unwrapSingle<InvitationSettingRow>(
+    await client
+      .from("invitation_settings")
+      .insert({
+        invitation_id: invitationId,
+      })
+      .select("*")
+      .single(),
+    "Gagal membuat pengaturan invitation default.",
+  );
+
+  return mapInvitationSettingRow(inserted);
+}
+
+export async function createDefaultInvitation(
+  userId: string,
+  displayName = "Pengantin",
+  client?: SupabaseDbClient,
+) {
+  const writableClient = await resolveServerClient(client);
   const partnerOneName = displayName;
   const partnerTwoName = "Pasangan";
   const template = "KOREAN_SOFT" as const;
@@ -102,103 +466,110 @@ export async function createDefaultInvitation(userId: string, displayName = "Pen
     config: templateConfig,
   });
   const baseCoupleSlug = buildCoupleSlug(partnerOneName, partnerTwoName);
+  const slugLookupClient = await getSlugLookupClient(writableClient);
   const coupleSlug = await generateUniqueSlug(baseCoupleSlug, async (candidate) => {
-    const existing = await prisma.invitation.findUnique({
-      where: { coupleSlug: candidate },
-      select: { id: true },
-    });
+    const existing = await unwrapMaybeSingle<Pick<InvitationRow, "id">>(
+      await slugLookupClient
+        .from("invitations")
+        .select("id")
+        .eq("couple_slug", candidate)
+        .maybeSingle(),
+      "Gagal memeriksa couple slug invitation.",
+    );
 
     return Boolean(existing);
   });
-
   const now = new Date();
 
-  return prisma.invitation.create({
-    data: {
-      ownerId: userId,
-      status: "DRAFT",
-      template,
-      coupleSlug,
-      partnerOneName,
-      partnerTwoName,
-      headline: generatedCopy.legacy.headline,
-      subheadline: generatedCopy.legacy.subheadline,
-      story: generatedCopy.legacy.story,
-      closingNote: generatedCopy.legacy.closingNote,
-      templateConfig,
-      setting: {
-        create: {},
+  const insertedInvitation = await unwrapSingle<InvitationRow>(
+    await writableClient
+      .from("invitations")
+      .insert({
+        owner_id: userId,
+        status: "DRAFT",
+        template,
+        couple_slug: coupleSlug,
+        partner_one_name: partnerOneName,
+        partner_two_name: partnerTwoName,
+        headline: generatedCopy.legacy.headline,
+        subheadline: generatedCopy.legacy.subheadline,
+        story: generatedCopy.legacy.story,
+        closing_note: generatedCopy.legacy.closingNote,
+        template_config: templateConfig as Json,
+      })
+      .select("*")
+      .single(),
+    "Gagal membuat invitation default.",
+  );
+
+  await unwrapSingle<Pick<InvitationSettingRow, "id">>(
+    await writableClient
+      .from("invitation_settings")
+      .insert({
+        invitation_id: insertedInvitation.id,
+      })
+      .select("id")
+      .single(),
+    "Gagal membuat pengaturan invitation default.",
+  );
+
+  await unwrapList<Pick<EventSlotRow, "id">>(
+    await writableClient.from("event_slots").insert([
+      {
+        invitation_id: insertedInvitation.id,
+        label: "Akad Nikah",
+        starts_at: addDays(now, 30).toISOString(),
+        venue_name: "Nama Venue Akad",
+        address: "Alamat lengkap venue akad akan ditampilkan di sini.",
+        sort_order: 0,
       },
-      eventSlots: {
-        create: [
-          {
-            label: "Akad Nikah",
-            startsAt: addDays(now, 30),
-            venueName: "Nama Venue Akad",
-            address: "Alamat lengkap venue akad akan ditampilkan di sini.",
-            sortOrder: 0,
-          },
-          {
-            label: "Resepsi",
-            startsAt: addDays(now, 30),
-            venueName: "Nama Venue Resepsi",
-            address: "Alamat lengkap venue resepsi akan ditampilkan di sini.",
-            sortOrder: 1,
-          },
-        ],
+      {
+        invitation_id: insertedInvitation.id,
+        label: "Resepsi",
+        starts_at: addDays(now, 30).toISOString(),
+        venue_name: "Nama Venue Resepsi",
+        address: "Alamat lengkap venue resepsi akan ditampilkan di sini.",
+        sort_order: 1,
       },
-    },
-    include: invitationInclude,
-  });
+    ]).select("id"),
+    "Gagal membuat jadwal acara invitation default.",
+  );
+
+  return hydrateInvitationWithRelations(mapInvitationRow(insertedInvitation), writableClient);
 }
 
-export async function getOrCreateDashboardInvitation(userId: string, displayName?: string | null) {
-  const existingInvitation = await prisma.invitation.findUnique({
-    where: { ownerId: userId },
-    include: invitationInclude,
-  });
+export async function getOrCreateDashboardInvitation(
+  userId: string,
+  displayName?: string | null,
+  client?: SupabaseDbClient,
+) {
+  const readableClient = await resolveServerClient(client);
+  const existingInvitation = await getInvitationBaseByOwnerId(userId, readableClient);
 
   if (existingInvitation) {
-    if (!existingInvitation.setting) {
-      await prisma.invitationSetting.create({
-        data: {
-          invitationId: existingInvitation.id,
-        },
-      });
-
-      return prisma.invitation.findUniqueOrThrow({
-        where: { id: existingInvitation.id },
-        include: invitationInclude,
-      });
-    }
-
-    return existingInvitation;
+    await ensureInvitationSetting(existingInvitation.id, readableClient);
+    return hydrateInvitationWithRelations(existingInvitation, readableClient);
   }
 
-  return createDefaultInvitation(userId, displayName ?? undefined);
+  return createDefaultInvitation(userId, displayName ?? undefined, readableClient);
 }
 
-export async function getDashboardInvitationSummary(userId: string) {
-  const invitation = await prisma.invitation.findUnique({
-    where: { ownerId: userId },
-    include: dashboardInvitationInclude,
-  });
+export async function getDashboardInvitationSummary(userId: string, client?: SupabaseDbClient) {
+  const readableClient = await resolveServerClient(client);
+  const invitation = await getInvitationBaseByOwnerId(userId, readableClient);
 
-  return invitation;
+  if (!invitation) {
+    return null;
+  }
+
+  await ensureInvitationSetting(invitation.id, readableClient);
+
+  return hydrateInvitationSummary(invitation, readableClient);
 }
 
 export function mapInvitationToRenderModel(
-  invitation: Invitation & {
-    templateConfig?: Prisma.JsonValue | null;
-    setting?: {
-      isRsvpEnabled: boolean;
-      isWishEnabled: boolean;
-      autoPlayMusic: boolean;
-    } | null;
-    eventSlots: EventSlot[];
-    galleryImages: GalleryImage[];
-  },
-  guest?: (Guest & { rsvp?: Rsvp | null; wish?: Wish | null }) | null,
+  invitation: InvitationWithRelations,
+  guest?: DashboardInvitationGuest | null,
   wishes: PublicWish[] = [],
 ): InvitationRenderModel {
   const templateSlug = getInvitationTemplateSlug(invitation.template);
@@ -276,53 +647,51 @@ export function mapInvitationToRenderModel(
   };
 }
 
-export async function trackInvitationOpen(invitationId: string, guestId: string, path?: string) {
-  await prisma.invitationViewLog.create({
-    data: {
-      invitationId,
-      guestId,
-      path: path ?? null,
-    },
-  });
+export async function trackInvitationOpen(
+  invitationId: string,
+  guestId: string,
+  path?: string,
+  client?: SupabaseDbClient,
+) {
+  const writableClient = resolveAdminClient(client);
+
+  await unwrapSingle(
+    await writableClient
+      .from("invitation_view_logs")
+      .insert({
+        invitation_id: invitationId,
+        guest_id: guestId,
+        path: path ?? null,
+      })
+      .select("id")
+      .single(),
+    "Gagal mencatat kunjungan invitation.",
+  );
 }
 
 export async function getDashboardAnalyticsSummary(
   userId: string,
+  client?: SupabaseDbClient,
 ): Promise<DashboardAnalyticsSummary | null> {
-  const invitation = await prisma.invitation.findUnique({
-    where: { ownerId: userId },
-    select: {
-      id: true,
-      guests: {
-        select: {
-          id: true,
-          rsvp: {
-            select: {
-              id: true,
-              status: true,
-            },
-          },
-        },
-      },
-    },
-  });
+  const readableClient = await resolveServerClient(client);
+  const invitation = await getDashboardInvitationSummary(userId, readableClient);
 
   if (!invitation) {
     return null;
   }
 
-  const [totalInvitationOpens, uniqueGuestOpenGroups] = await Promise.all([
-    prisma.invitationViewLog.count({
-      where: {
-        invitationId: invitation.id,
-      },
-    }),
-    prisma.invitationViewLog.groupBy({
-      by: ["guestId"],
-      where: {
-        invitationId: invitation.id,
-      },
-    }),
+  const [{ count: totalInvitationOpens }, viewLogs] = await Promise.all([
+    readableClient
+      .from("invitation_view_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("invitation_id", invitation.id),
+    unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
+      await readableClient
+        .from("invitation_view_logs")
+        .select("guest_id")
+        .eq("invitation_id", invitation.id),
+      "Gagal mengambil log pembukaan invitation.",
+    ),
   ]);
 
   const totalGuests = invitation.guests.length;
@@ -335,8 +704,8 @@ export async function getDashboardAnalyticsSummary(
     totalGuests,
     totalPersonalLinks: totalGuests,
     totalRsvps,
-    totalInvitationOpens,
-    uniqueGuestOpens: uniqueGuestOpenGroups.length,
+    totalInvitationOpens: totalInvitationOpens ?? 0,
+    uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
     rsvpBreakdown: {
       attending,
       declined,
@@ -359,7 +728,7 @@ export function validateInvitationPublishability(invitation: {
     longitude?: number | null;
   }>;
   guests: Array<{ id: string }>;
-}): InvitationPublishValidation {
+}) {
   const primaryEvent = invitation.eventSlots[0];
   const checklist: InvitationPublishChecklistItem[] = [
     {

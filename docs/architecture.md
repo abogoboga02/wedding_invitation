@@ -4,8 +4,10 @@
 - Next.js 16 App Router
 - TypeScript
 - Tailwind CSS v4
-- Auth.js
-- Prisma + PostgreSQL
+- Supabase Auth
+- Supabase Postgres + RLS
+- Supabase Storage
+- Prisma (legacy read-only migration tool)
 
 ## Folder Tree
 ```text
@@ -53,13 +55,15 @@ app/
       opengraph-image.tsx
       _actions/
   api/
-    auth/[...nextauth]/
     guests/import/
     uploads/
+  auth/
+    callback/
   layout.tsx
   sitemap.ts
   robots.ts
   opengraph-image.tsx
+proxy.ts
 
 components/
   ui/
@@ -76,12 +80,16 @@ lib/
   auth/
   constants/
   db/
+  supabase/
   utils/
 
 prisma/
   schema.prisma
   manual-postgresql.sql
   manual-postgresql-role-update.sql
+
+supabase/
+  migrations/
 
 docs/
 tests/

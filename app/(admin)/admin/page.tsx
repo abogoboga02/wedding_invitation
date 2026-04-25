@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
+import { getAdminOverviewData } from "@/features/admin/admin.service";
 import { formatAdminDateTime } from "@/lib/utils/date";
 
 const statCards = [
@@ -40,59 +40,15 @@ const statCards = [
 export default async function AdminPage() {
   await connection();
 
-  const [users, admins, invitations, published, guests, rsvps, recentUsers, recentInvitations] =
-    await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({
-        where: { role: "ADMIN" },
-      }),
-      prisma.invitation.count(),
-      prisma.invitation.count({
-        where: { status: "PUBLISHED" },
-      }),
-      prisma.guest.count(),
-      prisma.rsvp.count(),
-      prisma.user.findMany({
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 5,
-      }),
-      prisma.invitation.findMany({
-        select: {
-          id: true,
-          coupleSlug: true,
-          partnerOneName: true,
-          partnerTwoName: true,
-          status: true,
-          updatedAt: true,
-          owner: {
-            select: {
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          updatedAt: "desc",
-        },
-        take: 5,
-      }),
-    ]);
+  const overview = await getAdminOverviewData();
 
   const values = {
-    users,
-    admins,
-    invitations,
-    published,
-    guests,
-    rsvps,
+    users: overview.users,
+    admins: overview.admins,
+    invitations: overview.invitations,
+    published: overview.published,
+    guests: overview.guests,
+    rsvps: overview.rsvps,
   };
 
   return (
@@ -144,7 +100,7 @@ export default async function AdminPage() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {recentUsers.map((user) => (
+            {overview.recentUsers.map((user) => (
               <article
                 key={user.id}
                 className="rounded-[1.5rem] bg-[var(--color-surface-alt)] px-4 py-4"
@@ -185,7 +141,7 @@ export default async function AdminPage() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {recentInvitations.map((invitation) => (
+            {overview.recentInvitations.map((invitation) => (
               <article
                 key={invitation.id}
                 className="rounded-[1.5rem] bg-[var(--color-surface-alt)] px-4 py-4"
@@ -196,7 +152,7 @@ export default async function AdminPage() {
                       {invitation.partnerOneName} & {invitation.partnerTwoName}
                     </p>
                     <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                      /{invitation.coupleSlug} | {invitation.owner.email}
+                      /{invitation.coupleSlug} | {invitation.ownerEmail}
                     </p>
                   </div>
                   <div className="text-sm text-[var(--color-text-secondary)] sm:text-right">

@@ -1,39 +1,13 @@
 import { connection } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
+import { getAdminGuests } from "@/features/admin/admin.service";
 import { formatAdminDateTime } from "@/lib/utils/date";
 
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminGuestsPage() {
   await connection();
-
-  const guests = await prisma.guest.findMany({
-    include: {
-      invitation: {
-        select: {
-          coupleSlug: true,
-          partnerOneName: true,
-          partnerTwoName: true,
-          owner: {
-            select: {
-              email: true,
-            },
-          },
-        },
-      },
-      rsvp: {
-        select: {
-          status: true,
-          attendees: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 50,
-  });
+  const guests = await getAdminGuests();
 
   return (
     <div className="space-y-6">
@@ -56,7 +30,7 @@ export default async function AdminGuestsPage() {
                     </p>
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                       {guest.invitation.partnerOneName} & {guest.invitation.partnerTwoName} |{" "}
-                      {guest.invitation.owner.email}
+                      {guest.invitation.ownerEmail}
                     </p>
                   </div>
 
@@ -68,9 +42,7 @@ export default async function AdminGuestsPage() {
                       {guest.phone ?? guest.email ?? "Kontak belum diisi"} |{" "}
                       {formatAdminDateTime(guest.createdAt)}
                     </p>
-                    {guest.rsvp ? (
-                      <p className="mt-1">Jumlah hadir: {guest.rsvp.attendees}</p>
-                    ) : null}
+                    {guest.rsvp ? <p className="mt-1">Jumlah hadir: {guest.rsvp.attendees}</p> : null}
                   </div>
                 </div>
               </article>

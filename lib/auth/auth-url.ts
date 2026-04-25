@@ -26,20 +26,23 @@ export function normalizeConfiguredAuthUrl(value?: string | null) {
 
 export function syncNormalizedAuthEnvUrl() {
   const hasConfiguredUrl = Boolean(
-    process.env.AUTH_URL?.trim() || process.env.NEXTAUTH_URL?.trim(),
+    process.env.APP_URL?.trim() || process.env.AUTH_URL?.trim() || process.env.NEXTAUTH_URL?.trim(),
   );
 
   const normalizedUrl =
+    normalizeConfiguredAuthUrl(process.env.APP_URL) ??
     normalizeConfiguredAuthUrl(process.env.AUTH_URL) ??
     normalizeConfiguredAuthUrl(process.env.NEXTAUTH_URL);
 
   if (normalizedUrl) {
+    process.env.APP_URL = normalizedUrl;
     process.env.AUTH_URL = normalizedUrl;
     process.env.NEXTAUTH_URL = normalizedUrl;
     return normalizedUrl;
   }
 
   if (hasConfiguredUrl) {
+    delete process.env.APP_URL;
     delete process.env.AUTH_URL;
     delete process.env.NEXTAUTH_URL;
   }

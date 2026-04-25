@@ -1,17 +1,26 @@
 import { NextResponse } from "next/server";
 
-import { auth } from "@/auth";
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { storeUploadedFiles } from "@/lib/utils/upload";
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session?.user?.id) {
+  if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.role !== "CLIENT") {
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id, name, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "CLIENT") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -30,10 +39,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const invitation = await getOrCreateDashboardInvitation(session.user.id, session.user.name);
+    const invitation = await getOrCreateDashboardInvitation(user.id, profile?.name ?? null, supabase);
     const assets = await storeUploadedFiles({
       files,
-      ownerId: session.user.id,
+      ownerId: user.id,
       invitationId: invitation.id,
       kind,
     });

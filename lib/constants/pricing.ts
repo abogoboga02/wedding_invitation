@@ -1,4 +1,4 @@
-import type { PlanTier, SendChannel } from "@prisma/client";
+import type { PlanTier, SendChannel } from "@/lib/domain/types";
 
 export type PricingPlanDefinition = {
   tier: PlanTier;

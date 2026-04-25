@@ -1,45 +1,14 @@
 import { connection } from "next/server";
 
+import { getAdminRsvps } from "@/features/admin/admin.service";
 import { RSVP_STATUS_LABELS } from "@/lib/constants/invitation";
-import { prisma } from "@/lib/db/prisma";
 import { formatAdminDateTime } from "@/lib/utils/date";
 
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminRsvpPage() {
   await connection();
-
-  const [statusCounts, rsvps] = await Promise.all([
-    prisma.rsvp.groupBy({
-      by: ["status"],
-      _count: {
-        status: true,
-      },
-    }),
-    prisma.rsvp.findMany({
-      include: {
-        guest: {
-          select: {
-            name: true,
-            guestSlug: true,
-            invitation: {
-              select: {
-                coupleSlug: true,
-                partnerOneName: true,
-                partnerTwoName: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        respondedAt: "desc",
-      },
-      take: 50,
-    }),
-  ]);
-
-  const countMap = new Map(statusCounts.map((item) => [item.status, item._count.status]));
+  const { countMap, rsvps } = await getAdminRsvps();
 
   return (
     <div className="space-y-6">

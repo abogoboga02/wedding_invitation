@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { prisma } from "@/lib/db/prisma";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { rsvpSchema } from "@/features/rsvp/rsvp.schema";
 
@@ -39,104 +39,116 @@ export async function submitRsvpAction(
     };
   }
 
-  const guest = await prisma.guest.findFirst({
-    where: {
-      id: parsedRsvp.data.guestId,
-      guestSlug: parsedRsvp.data.guestSlug,
-      invitation: {
-        coupleSlug: parsedRsvp.data.coupleSlug,
-        status: "PUBLISHED",
-      },
-    },
-    select: {
-      id: true,
-      invitationId: true,
-      invitation: {
-        select: {
-          setting: {
-            select: {
-              isRsvpEnabled: true,
-              isWishEnabled: true,
-            },
-          },
-        },
-      },
-      rsvp: {
-        select: {
-          updatedAt: true,
-        },
-      },
-      wish: {
-        select: {
-          updatedAt: true,
-        },
-      },
-    },
-  });
+  const admin = getSupabaseAdminClient();
+  const { data: invitation } = await admin
+    .from("invitations")
+    .select("id")
+    .eq("couple_slug", parsedRsvp.data.coupleSlug)
+    .eq("status", "PUBLISHED")
+    .maybeSingle();
 
-  if (!guest) {
+  if (!invitation?.id) {
     return {
       error: "Link undangan tidak valid.",
     };
   }
 
-  if (guest.invitation.setting?.isRsvpEnabled === false) {
+  const [guest, settings, existingRsvp, existingWish] = await Promise.all([
+    admin
+      .from("guests")
+      .select("id, invitation_id")
+      .eq("id", parsedRsvp.data.guestId)
+      .eq("guest_slug", parsedRsvp.data.guestSlug)
+      .eq("invitation_id", invitation.id)
+      .maybeSingle(),
+    admin
+      .from("invitation_settings")
+      .select("is_rsvp_enabled, is_wish_enabled")
+      .eq("invitation_id", invitation.id)
+      .maybeSingle(),
+    admin
+      .from("rsvps")
+      .select("updated_at")
+      .eq("guest_id", parsedRsvp.data.guestId)
+      .maybeSingle(),
+    admin
+      .from("wishes")
+      .select("updated_at")
+      .eq("guest_id", parsedRsvp.data.guestId)
+      .maybeSingle(),
+  ]);
+
+  if (!guest.data?.id) {
+    return {
+      error: "Link undangan tidak valid.",
+    };
+  }
+
+  if (settings.data?.is_rsvp_enabled === false) {
     return {
       error: "Form RSVP sedang dinonaktifkan oleh pemilik undangan.",
     };
   }
 
-  if (guest.rsvp?.updatedAt && Date.now() - guest.rsvp.updatedAt.getTime() < 30_000) {
+  if (
+    existingRsvp.data?.updated_at &&
+    Date.now() - new Date(existingRsvp.data.updated_at).getTime() < 30_000
+  ) {
     return {
       error: "Tunggu sebentar sebelum mengirim RSVP lagi.",
     };
   }
 
   if (
-    guest.invitation.setting?.isWishEnabled !== false &&
+    settings.data?.is_wish_enabled !== false &&
     parsedRsvp.data.wishMessage?.trim() &&
-    guest.wish?.updatedAt &&
-    Date.now() - guest.wish.updatedAt.getTime() < 30_000
+    existingWish.data?.updated_at &&
+    Date.now() - new Date(existingWish.data.updated_at).getTime() < 30_000
   ) {
     return {
       error: "Tunggu sebentar sebelum memperbarui ucapan lagi.",
     };
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.rsvp.upsert({
-      where: { guestId: guest.id },
-      update: {
-        respondentName: parsedRsvp.data.respondentName?.trim() || null,
-        status: parsedRsvp.data.status,
-        attendees: parsedRsvp.data.attendees,
-        note: parsedRsvp.data.note?.trim() || null,
-        respondedAt: new Date(),
-      },
-      create: {
-        guestId: guest.id,
-        respondentName: parsedRsvp.data.respondentName?.trim() || null,
-        status: parsedRsvp.data.status,
-        attendees: parsedRsvp.data.attendees,
-        note: parsedRsvp.data.note?.trim() || null,
-      },
-    });
+  const upsertRsvp = await admin.from("rsvps").upsert(
+    {
+      guest_id: guest.data.id,
+      respondent_name: parsedRsvp.data.respondentName?.trim() || null,
+      status: parsedRsvp.data.status,
+      attendees: parsedRsvp.data.attendees,
+      note: parsedRsvp.data.note?.trim() || null,
+      responded_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "guest_id",
+    },
+  );
 
-    if (guest.invitation.setting?.isWishEnabled !== false && parsedRsvp.data.wishMessage?.trim()) {
-      await tx.wish.upsert({
-        where: { guestId: guest.id },
-        update: {
-          message: parsedRsvp.data.wishMessage.trim(),
-          isApproved: true,
-        },
-        create: {
-          invitationId: guest.invitationId,
-          guestId: guest.id,
-          message: parsedRsvp.data.wishMessage.trim(),
-        },
-      });
+  if (upsertRsvp.error) {
+    return {
+      error: "RSVP belum berhasil disimpan.",
+    };
+  }
+
+  if (settings.data?.is_wish_enabled !== false && parsedRsvp.data.wishMessage?.trim()) {
+    const upsertWish = await admin.from("wishes").upsert(
+      {
+        invitation_id: guest.data.invitation_id,
+        guest_id: guest.data.id,
+        message: parsedRsvp.data.wishMessage.trim(),
+        is_approved: true,
+      },
+      {
+        onConflict: "guest_id",
+      },
+    );
+
+    if (upsertWish.error) {
+      return {
+        error: "Ucapan sudah diterima, tetapi penyimpanan wish belum berhasil.",
+      };
     }
-  });
+  }
 
   revalidatePath(`/${parsedRsvp.data.coupleSlug}/${parsedRsvp.data.guestSlug}`);
   revalidatePath("/dashboard/rsvp");

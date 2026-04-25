@@ -1,10 +1,10 @@
-import { auth } from "@/auth";
 import { buildDraftInvitationPreview } from "@/features/invitation/preview-invitation.service";
 import {
   getDashboardInvitationSummary,
   validateInvitationPublishability,
 } from "@/features/invitation/invitation.service";
 import { TemplateRenderer } from "@/features/invitation/templates/TemplateRenderer";
+import { requireClientUser } from "@/lib/auth/guards";
 
 import { InvitationStatusBadge } from "../_components/InvitationStatusBadge";
 import { PreviewPublishActions } from "./_components/PreviewPublishActions";
@@ -22,8 +22,8 @@ function PreviewRsvpPlaceholder() {
 }
 
 export default async function DashboardPreviewPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
 
   if (!invitation) {
     return null;

@@ -1,10 +1,7 @@
 "use server";
 
-import { AuthError } from "next-auth";
-import { hash } from "bcryptjs";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { redirect } from "next/navigation";
 
-import { signIn, signOut } from "@/auth";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -12,12 +9,36 @@ import {
   resetPasswordSchema,
 } from "@/features/auth/auth.schema";
 import { createDefaultInvitation } from "@/features/invitation/invitation.service";
-import { prisma } from "@/lib/db/prisma";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { buildSiteHref } from "@/lib/utils/site-url";
 
 export type AuthActionState = {
   error?: string;
   success?: string;
 };
+
+function isEmailIdentifier(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+async function resolveLoginEmail(identifier: string) {
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+
+  if (isEmailIdentifier(normalizedIdentifier)) {
+    return normalizedIdentifier;
+  }
+
+  const admin = getSupabaseAdminClient();
+  const { data: adminUser } = await admin
+    .from("users")
+    .select("email")
+    .eq("role", "ADMIN")
+    .ilike("name", normalizedIdentifier)
+    .maybeSingle();
+
+  return adminUser?.email ?? normalizedIdentifier;
+}
 
 export async function loginAction(
   _prevState: AuthActionState,
@@ -35,26 +56,17 @@ export async function loginAction(
     };
   }
 
-  try {
-    await signIn("credentials", {
-      identifier: parsedForm.data.identifier,
-      password: parsedForm.data.password,
-      redirect: false,
-      redirectTo: "/dashboard",
-    });
-  } catch (error) {
-    unstable_rethrow(error);
+  const supabase = await createServerSupabaseClient();
+  const email = await resolveLoginEmail(parsedForm.data.identifier);
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: parsedForm.data.password,
+  });
 
-    if (error instanceof AuthError) {
-      return {
-        error:
-          error.type === "CredentialsSignin"
-            ? "Email/username atau password tidak cocok."
-            : "Login belum berhasil. Coba lagi.",
-      };
-    }
-
-    throw error;
+  if (error) {
+    return {
+      error: "Email/username atau password tidak cocok.",
+    };
   }
 
   redirect("/dashboard");
@@ -81,58 +93,88 @@ export async function registerAction(
     };
   }
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: parsedForm.data.email },
-    select: { id: true },
-  });
+  const admin = getSupabaseAdminClient();
+  const existingUser = await admin
+    .from("users")
+    .select("id")
+    .eq("email", parsedForm.data.email)
+    .maybeSingle();
 
-  if (existingUser) {
+  if (existingUser.data?.id) {
     return {
       error: "Email ini sudah terdaftar. Silakan masuk.",
     };
   }
 
-  const passwordHash = await hash(parsedForm.data.password, 12);
-  const user = await prisma.user.create({
-    data: {
+  const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
+    email: parsedForm.data.email,
+    password: parsedForm.data.password,
+    email_confirm: true,
+    user_metadata: {
       name: parsedForm.data.name,
-      email: parsedForm.data.email,
-      passwordHash,
+    },
+    app_metadata: {
+      role: "CLIENT",
     },
   });
 
-  await createDefaultInvitation(user.id, parsedForm.data.name);
+  if (createError || !createdUser.user?.id) {
+    return {
+      error:
+        createError?.message === "A user with this email address has already been registered"
+          ? "Email ini sudah terdaftar. Silakan masuk."
+          : "Akun belum berhasil dibuat. Coba lagi.",
+    };
+  }
+
+  const profileInsert = await admin
+    .from("users")
+    .upsert(
+      {
+        id: createdUser.user.id,
+        name: parsedForm.data.name,
+        email: parsedForm.data.email,
+        role: "CLIENT",
+      },
+      {
+        onConflict: "id",
+      },
+    )
+    .select("id")
+    .single();
+
+  if (profileInsert.error) {
+    return {
+      error: "Akun auth berhasil dibuat, tetapi profil pengguna belum tersimpan.",
+    };
+  }
 
   try {
-    await signIn("credentials", {
-      identifier: parsedForm.data.email,
-      password: parsedForm.data.password,
-      redirect: false,
-      redirectTo: "/dashboard",
-    });
-  } catch (error) {
-    unstable_rethrow(error);
+    await createDefaultInvitation(createdUser.user.id, parsedForm.data.name, admin);
+  } catch {
+    return {
+      error: "Akun berhasil dibuat, tetapi draft undangan awal belum berhasil disiapkan.",
+    };
+  }
 
-    if (error instanceof AuthError) {
-      return {
-        error: "Akun berhasil dibuat, tetapi login otomatis belum berhasil.",
-      };
-    }
+  const supabase = await createServerSupabaseClient();
+  const { error: loginError } = await supabase.auth.signInWithPassword({
+    email: parsedForm.data.email,
+    password: parsedForm.data.password,
+  });
 
-    throw error;
+  if (loginError) {
+    return {
+      error: "Akun berhasil dibuat, tetapi login otomatis belum berhasil.",
+    };
   }
 
   redirect("/dashboard");
 }
 
 export async function logoutAction() {
-  try {
-    await signOut({ redirect: false, redirectTo: "/login" });
-  } catch (error) {
-    unstable_rethrow(error);
-    throw error;
-  }
-
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth.signOut();
   redirect("/login");
 }
 
@@ -150,9 +192,20 @@ export async function forgotPasswordAction(
     };
   }
 
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsedForm.data.email, {
+    redirectTo: buildSiteHref("/auth/callback?next=/reset-password"),
+  });
+
+  if (error) {
+    return {
+      error: "Instruksi reset password belum berhasil dikirim.",
+    };
+  }
+
   return {
     success:
-      "Jika email terdaftar, instruksi reset password akan dikirim. Untuk MVP, flow email masih berupa placeholder.",
+      "Jika email terdaftar, tautan reset password sudah dikirim. Cek inbox atau spam Anda.",
   };
 }
 
@@ -161,7 +214,6 @@ export async function resetPasswordAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const parsedForm = resetPasswordSchema.safeParse({
-    token: formData.get("token"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
   });
@@ -170,15 +222,34 @@ export async function resetPasswordAction(
     const errors = parsedForm.error.flatten().fieldErrors;
     return {
       error:
-        errors.token?.[0] ??
         errors.password?.[0] ??
         errors.confirmPassword?.[0] ??
         "Data reset password tidak valid.",
     };
   }
 
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: "Sesi reset password tidak ditemukan. Minta tautan reset baru terlebih dahulu.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsedForm.data.password,
+  });
+
+  if (error) {
+    return {
+      error: "Password baru belum berhasil disimpan.",
+    };
+  }
+
   return {
-    success:
-      "Password baru sudah tervalidasi. Untuk MVP, endpoint pergantian password final masih berupa placeholder.",
+    success: "Password berhasil diperbarui. Anda bisa langsung melanjutkan ke dashboard.",
   };
 }

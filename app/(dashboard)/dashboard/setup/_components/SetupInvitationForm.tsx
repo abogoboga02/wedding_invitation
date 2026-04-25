@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 
-import type { InvitationTemplate } from "@prisma/client";
-
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
   commonInvitationFormSections,
@@ -16,6 +14,7 @@ import {
   buildCommonInvitationSetupInput,
   commonInvitationSetupSchema,
 } from "@/features/invitation/invitation.schema";
+import type { InvitationTemplate } from "@/lib/domain/types";
 import { toDateTimeLocalValue } from "@/lib/utils/date";
 
 import type { DashboardActionState } from "../../_actions/dashboard-actions";

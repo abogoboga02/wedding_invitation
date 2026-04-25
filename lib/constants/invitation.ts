@@ -1,4 +1,4 @@
-import type { InvitationTemplate, RsvpStatus } from "@prisma/client";
+import type { InvitationTemplate, RsvpStatus } from "@/lib/domain/types";
 
 export const RESERVED_SLUGS = new Set([
   "login",

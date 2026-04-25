@@ -1,25 +1,36 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
-import { auth } from "@/auth";
 import { parseGuestCsv } from "@/features/guest/guest-csv";
 import { buildGuestImportPreview } from "@/features/guest/guest.service";
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
-import { prisma } from "@/lib/db/prisma";
+import type { Database } from "@/lib/supabase/database.types";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type ImportPayload = {
   csvText?: string;
   mode?: "preview" | "commit";
 };
 
-export async function POST(request: Request) {
-  const session = await auth();
+type GuestInsert = Database["public"]["Tables"]["guests"]["Insert"];
 
-  if (!session?.user?.id) {
+export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (session.user.role !== "CLIENT") {
+  const { data: profile } = await supabase
+    .from("users")
+    .select("id, name, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "CLIENT") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -31,7 +42,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "CSV kosong." }, { status: 400 });
   }
 
-  const invitation = await getOrCreateDashboardInvitation(session.user.id, session.user.name);
+  const invitation = await getOrCreateDashboardInvitation(user.id, profile?.name ?? null, supabase);
 
   try {
     const parsedRows = parseGuestCsv(csvText);
@@ -40,19 +51,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tidak ada baris tamu yang valid." }, { status: 400 });
     }
 
-    const existingGuests = await prisma.guest.findMany({
-      where: {
-        invitationId: invitation.id,
-      },
-      select: {
-        name: true,
-        phone: true,
-        email: true,
-        guestSlug: true,
-      },
-    });
+    const { data: existingGuests, error: existingGuestsError } = await supabase
+      .from("guests")
+      .select("name, phone, email, guest_slug")
+      .eq("invitation_id", invitation.id);
 
-    const previewRows = buildGuestImportPreview(parsedRows, existingGuests);
+    if (existingGuestsError) {
+      return NextResponse.json({ error: "Guest list saat ini belum berhasil dibaca." }, { status: 400 });
+    }
+
+    const previewRows = buildGuestImportPreview(
+      parsedRows,
+      (existingGuests ?? []).map((guest) => ({
+        name: guest.name,
+        phone: guest.phone,
+        email: guest.email,
+        guestSlug: guest.guest_slug,
+      })),
+    );
 
     if (mode === "preview") {
       return NextResponse.json({ rows: previewRows });
@@ -64,16 +80,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tidak ada data baru yang siap diimpor." }, { status: 400 });
     }
 
-    await prisma.guest.createMany({
-      data: readyRows.map((row) => ({
-        invitationId: invitation.id,
+    const guestRows: GuestInsert[] = readyRows.map((row) => ({
+        invitation_id: invitation.id,
         name: row.name,
         phone: row.phone || null,
         email: row.email || null,
-        guestSlug: row.guestSlug,
+        guest_slug: row.guestSlug,
         source: "CSV",
-      })),
-    });
+      }));
+
+    const { error: insertError } = await supabase.from("guests").insert(guestRows);
+
+    if (insertError) {
+      return NextResponse.json({ error: "Import CSV belum berhasil disimpan." }, { status: 400 });
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/guests");

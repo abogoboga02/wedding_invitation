@@ -1,14 +1,14 @@
-import { auth } from "@/auth";
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 
 import { MediaStudioForm } from "./_components/MediaStudioForm";
 
 export default async function DashboardMediaPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
 
   if (!invitation) {
     return null;
@@ -26,11 +26,13 @@ export default async function DashboardMediaPage() {
         templateConfig={normalizeTemplateConfig(invitation.template, invitation.templateConfig)}
         coverImage={invitation.coverImage}
         coverImageAlt={invitation.coverImageAlt}
+        coverImageStoragePath={invitation.coverImageStoragePath}
         galleryImages={invitation.galleryImages}
         musicUrl={invitation.musicUrl}
         musicOriginalName={invitation.musicOriginalName}
         musicMimeType={invitation.musicMimeType}
         musicSize={invitation.musicSize}
+        musicStoragePath={invitation.musicStoragePath}
       />
     </div>
   );

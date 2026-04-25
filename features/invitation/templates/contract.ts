@@ -1,7 +1,6 @@
-import type { InvitationStatus, InvitationTemplate, RsvpStatus } from "@prisma/client";
-
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
 import type { InvitationTemplateConfigValues } from "@/features/invitation/form/config";
+import type { InvitationStatus, InvitationTemplate, RsvpStatus } from "@/lib/domain/types";
 import { getMusicPresetById } from "@/lib/constants/music-playlist";
 
 import type { InvitationRenderModel } from "../invitation.types";

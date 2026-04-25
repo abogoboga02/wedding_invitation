@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { prisma } from "@/lib/db/prisma";
+import { getAdminUsers } from "@/features/admin/admin.service";
 import { formatAdminDateTime } from "@/lib/utils/date";
 
 import { updateUserRoleAction } from "../_actions/admin-actions";
@@ -9,21 +9,7 @@ import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminUsersPage() {
   await connection();
-
-  const users = await prisma.user.findMany({
-    include: {
-      invitation: {
-        select: {
-          id: true,
-          coupleSlug: true,
-          status: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const users = await getAdminUsers();
 
   return (
     <div className="space-y-6">

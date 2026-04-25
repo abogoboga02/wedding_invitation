@@ -1,4 +1,4 @@
-import type { InvitationTemplate } from "@prisma/client";
+import type { InvitationTemplate } from "@/lib/domain/types";
 
 import type { InvitationRenderModel } from "../invitation.types";
 import type { SharedInvitationTemplateData } from "./contract";

@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import { auth } from "@/auth";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { getInvitationSendLogs } from "@/features/admin/admin.service";
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 import { SEND_CHANNEL_LABELS } from "@/lib/constants/pricing";
-import { prisma } from "@/lib/db/prisma";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 import { DashboardSectionCard } from "../_components/DashboardSectionCard";
@@ -12,30 +12,15 @@ import { DashboardStatCard } from "../_components/DashboardStatCard";
 import { logManualSendAction } from "../_actions/dashboard-actions";
 
 export default async function DashboardSendPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
 
   if (!invitation) {
     return null;
   }
 
   const sendReadyGuests = invitation.guests.filter((guest) => guest.phone || guest.email);
-  const recentLogs = await prisma.sendLog.findMany({
-    where: {
-      invitationId: invitation.id,
-    },
-    include: {
-      guest: {
-        select: {
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 8,
-  });
+  const recentLogs = await getInvitationSendLogs(invitation.id, 8);
 
   return (
     <div className="space-y-6">
@@ -151,13 +136,13 @@ export default async function DashboardSendPage() {
               >
                 <div>
                   <p className="font-medium text-[var(--color-text-primary)]">
-                    {log.guest?.name ?? "Tamu tidak ditemukan"}
+                    {log.guestName ?? "Tamu tidak ditemukan"}
                   </p>
                   <p className="mt-1">
                     {SEND_CHANNEL_LABELS[log.channel]} • {log.recipient}
                   </p>
                 </div>
-                <p>{log.sentAt?.toLocaleString("id-ID") ?? "-"}</p>
+                <p>{log.createdAt.toLocaleString("id-ID")}</p>
               </div>
             ))
           ) : (

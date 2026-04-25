@@ -14,11 +14,13 @@ type MediaStudioFormProps = {
   templateConfig: InvitationTemplateConfigValues;
   coverImage: string | null;
   coverImageAlt: string | null;
-  galleryImages: Array<{ imageUrl: string }>;
+  coverImageStoragePath: string | null;
+  galleryImages: Array<{ imageUrl: string; storagePath?: string | null }>;
   musicUrl: string | null;
   musicOriginalName: string | null;
   musicMimeType: string | null;
   musicSize: number | null;
+  musicStoragePath: string | null;
 };
 
 const initialState: DashboardActionState = {};
@@ -27,11 +29,13 @@ export function MediaStudioForm({
   templateConfig,
   coverImage,
   coverImageAlt,
+  coverImageStoragePath,
   galleryImages,
   musicUrl,
   musicOriginalName,
   musicMimeType,
   musicSize,
+  musicStoragePath,
 }: MediaStudioFormProps) {
   const [state, formAction] = useActionState(saveMediaInvitationAction, initialState);
 
@@ -53,7 +57,12 @@ export function MediaStudioForm({
         helperText="Unggah satu gambar utama untuk hero undangan."
         name="coverImage"
         kind="cover"
-        initialAssets={coverImage ? [{ url: coverImage }] : []}
+        initialAssets={
+          coverImage ? [{ url: coverImage, storagePath: coverImageStoragePath ?? undefined }] : []
+        }
+        metadataFieldNames={{
+          storagePath: "coverImageStoragePath",
+        }}
       />
 
       <label className="block space-y-2 rounded-[2rem] border border-[var(--color-border)] bg-white p-5">
@@ -74,7 +83,13 @@ export function MediaStudioForm({
         name="galleryImages"
         kind="gallery"
         multiple
-        initialAssets={galleryImages.map((image) => ({ url: image.imageUrl }))}
+        initialAssets={galleryImages.map((image) => ({
+          url: image.imageUrl,
+          storagePath: image.storagePath ?? undefined,
+        }))}
+        metadataFieldNames={{
+          storagePath: "galleryImageStoragePaths",
+        }}
       />
 
       <MediaUploader
@@ -87,6 +102,7 @@ export function MediaStudioForm({
             ? [
                 {
                   url: musicUrl,
+                  storagePath: musicStoragePath ?? undefined,
                   originalName: musicOriginalName ?? undefined,
                   mimeType: musicMimeType ?? undefined,
                   size: musicSize ?? undefined,
@@ -98,6 +114,7 @@ export function MediaStudioForm({
           originalName: "musicOriginalName",
           mimeType: "musicMimeType",
           size: "musicSize",
+          storagePath: "musicStoragePath",
         }}
       />
 

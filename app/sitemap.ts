@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { connection } from "next/server";
 
-import { prisma } from "@/lib/db/prisma";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { unwrapList } from "@/lib/supabase/helpers";
 import { buildSiteHref } from "@/lib/utils/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -31,29 +32,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const invitations = await prisma.invitation.findMany({
-      where: {
-        status: "PUBLISHED",
-      },
-      select: {
-        updatedAt: true,
-        coupleSlug: true,
-        guests: {
-          select: {
-            guestSlug: true,
-          },
-          take: 10,
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
+    const admin = getSupabaseAdminClient();
+    const invitations = await unwrapList(
+      await admin
+        .from("invitations")
+        .select("id, couple_slug, updated_at")
+        .eq("status", "PUBLISHED"),
+      "Gagal mengambil invitation untuk sitemap.",
+    );
+
+    if (invitations.length === 0) {
+      return staticRoutes;
+    }
+
+    const guestRows = await unwrapList(
+      await admin
+        .from("guests")
+        .select("invitation_id, guest_slug, created_at")
+        .in(
+          "invitation_id",
+          invitations.map((invitation) => invitation.id),
+        )
+        .order("created_at", { ascending: true }),
+      "Gagal mengambil guest untuk sitemap.",
+    );
+
+    const guestsByInvitationId = new Map<string, string[]>();
+    guestRows.forEach((guest) => {
+      const currentGuests = guestsByInvitationId.get(guest.invitation_id) ?? [];
+
+      if (currentGuests.length < 10) {
+        currentGuests.push(guest.guest_slug);
+      }
+
+      guestsByInvitationId.set(guest.invitation_id, currentGuests);
     });
 
     const invitationRoutes: MetadataRoute.Sitemap = invitations.flatMap((invitation) =>
-      invitation.guests.map((guest) => ({
-        url: buildSiteHref(`/${invitation.coupleSlug}/${guest.guestSlug}`),
-        lastModified: invitation.updatedAt,
+      (guestsByInvitationId.get(invitation.id) ?? []).map((guestSlug) => ({
+        url: buildSiteHref(`/${invitation.couple_slug}/${guestSlug}`),
+        lastModified: new Date(invitation.updated_at),
         changeFrequency: "weekly",
         priority: 0.7,
       })),

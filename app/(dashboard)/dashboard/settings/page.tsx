@@ -1,5 +1,5 @@
-import { auth } from "@/auth";
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 import { DashboardSectionCard } from "../_components/DashboardSectionCard";
@@ -7,8 +7,8 @@ import { DashboardSectionCard } from "../_components/DashboardSectionCard";
 import { InvitationSettingsForm } from "./_components/InvitationSettingsForm";
 
 export default async function DashboardSettingsPage() {
-  const session = await auth();
-  const invitation = await getDashboardInvitationSummary(session!.user.id);
+  const user = await requireClientUser();
+  const invitation = await getDashboardInvitationSummary(user.id);
 
   if (!invitation) {
     return null;

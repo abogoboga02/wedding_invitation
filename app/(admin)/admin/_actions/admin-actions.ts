@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdminUser } from "@/lib/auth/guards";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
-import { prisma } from "@/lib/db/prisma";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function updateUserRoleAction(formData: FormData) {
   await requireAdminUser();
+  const admin = getSupabaseAdminClient();
   const userId = String(formData.get("userId") ?? "");
   const role = String(formData.get("role") ?? "") as "ADMIN" | "CLIENT";
 
@@ -16,26 +17,28 @@ export async function updateUserRoleAction(formData: FormData) {
   }
 
   if (role === "CLIENT") {
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
+    const { data: currentUser } = await admin
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
 
     if (currentUser?.role === "ADMIN") {
-      const adminCount = await prisma.user.count({
-        where: { role: "ADMIN" },
-      });
+      const adminCount = await admin
+        .from("users")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "ADMIN");
 
-      if (adminCount <= 1) {
+      if ((adminCount.count ?? 0) <= 1) {
         return;
       }
     }
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { role },
-  });
+  await admin
+    .from("users")
+    .update({ role })
+    .eq("id", userId);
 
   revalidatePath("/admin");
   revalidatePath("/admin/users");
@@ -43,6 +46,7 @@ export async function updateUserRoleAction(formData: FormData) {
 
 export async function toggleInvitationStatusAction(formData: FormData) {
   await requireAdminUser();
+  const admin = getSupabaseAdminClient();
   const invitationId = String(formData.get("invitationId") ?? "");
   const status = String(formData.get("status") ?? "") as "DRAFT" | "PUBLISHED";
 
@@ -50,13 +54,13 @@ export async function toggleInvitationStatusAction(formData: FormData) {
     return;
   }
 
-  await prisma.invitation.update({
-    where: { id: invitationId },
-    data: {
+  await admin
+    .from("invitations")
+    .update({
       status,
-      publishedAt: status === "PUBLISHED" ? new Date() : null,
-    },
-  });
+      published_at: status === "PUBLISHED" ? new Date().toISOString() : null,
+    })
+    .eq("id", invitationId);
 
   revalidatePath("/admin");
   revalidatePath("/admin/invitations");
@@ -64,28 +68,20 @@ export async function toggleInvitationStatusAction(formData: FormData) {
 
 export async function syncPlanCatalogAction() {
   await requireAdminUser();
+  const admin = getSupabaseAdminClient();
 
-  await Promise.all(
-    PRICING_PLANS.map((plan, index) =>
-      prisma.plan.upsert({
-        where: { tier: plan.tier },
-        update: {
-          name: plan.name,
-          description: plan.caption,
-          priceInIdr: plan.priceInIdr,
-          isActive: true,
-          sortOrder: index,
-        },
-        create: {
-          tier: plan.tier,
-          name: plan.name,
-          description: plan.caption,
-          priceInIdr: plan.priceInIdr,
-          isActive: true,
-          sortOrder: index,
-        },
-      }),
-    ),
+  await admin.from("plans").upsert(
+    PRICING_PLANS.map((plan, index) => ({
+      tier: plan.tier,
+      name: plan.name,
+      description: plan.caption,
+      price_in_idr: plan.priceInIdr,
+      is_active: true,
+      sort_order: index,
+    })),
+    {
+      onConflict: "tier",
+    },
   );
 
   revalidatePath("/admin/templates");

@@ -1,31 +1,13 @@
 import { connection } from "next/server";
 
+import { getAdminSendLogs } from "@/features/admin/admin.service";
 import { SEND_CHANNEL_LABELS } from "@/lib/constants/pricing";
-import { prisma } from "@/lib/db/prisma";
 
 import { AdminSectionCard } from "../_components/AdminSectionCard";
 
 export default async function AdminSendLogsPage() {
   await connection();
-
-  const logs = await prisma.sendLog.findMany({
-    include: {
-      invitation: {
-        select: {
-          coupleSlug: true,
-        },
-      },
-      guest: {
-        select: {
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 20,
-  });
+  const logs = await getAdminSendLogs();
 
   return (
     <div className="space-y-6">
@@ -41,10 +23,10 @@ export default async function AdminSendLogsPage() {
                 className="rounded-[1.5rem] bg-[var(--color-surface-alt)] px-4 py-4 text-sm text-[var(--color-text-secondary)]"
               >
                 <p className="font-medium text-[var(--color-text-primary)]">
-                  {log.guest?.name ?? "Tanpa tamu"} • /{log.invitation.coupleSlug}
+                  {log.guestName ?? "Tanpa tamu"} â€¢ /{log.invitationCoupleSlug}
                 </p>
                 <p className="mt-1">
-                  {SEND_CHANNEL_LABELS[log.channel]} • {log.status} • {log.recipient}
+                  {SEND_CHANNEL_LABELS[log.channel]} â€¢ {log.status} â€¢ {log.recipient}
                 </p>
               </div>
             ))

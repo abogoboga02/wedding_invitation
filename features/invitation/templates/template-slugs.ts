@@ -1,4 +1,4 @@
-import type { InvitationTemplate } from "@prisma/client";
+import type { InvitationTemplate } from "@/lib/domain/types";
 
 export const templateSlugMap = {
   ELEGANT_LUXURY: "elegant-luxury",

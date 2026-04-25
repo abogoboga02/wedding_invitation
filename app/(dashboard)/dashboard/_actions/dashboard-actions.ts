@@ -1,4 +1,5 @@
 "use server";
+
 import { revalidatePath } from "next/cache";
 
 import { guestSchema } from "@/features/guest/guest.schema";
@@ -23,9 +24,11 @@ import {
   isInvitationTemplate,
 } from "@/features/invitation/templates/template-slugs";
 import { invitationSettingsSchema } from "@/features/settings/settings.schema";
-import { getMusicPresetById } from "@/lib/constants/music-playlist";
 import { requireClientUser } from "@/lib/auth/guards";
-import { prisma } from "@/lib/db/prisma";
+import { getMusicPresetById } from "@/lib/constants/music-playlist";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { deleteStoredFiles } from "@/lib/utils/upload";
 import { isReservedSlug } from "@/lib/utils/slug";
 
 export type DashboardActionState = {
@@ -37,12 +40,24 @@ async function getAuthenticatedUser() {
   return requireClientUser();
 }
 
+function buildZippedGalleryAssets(urls: string[], storagePaths: string[]) {
+  return urls.map((imageUrl, index) => ({
+    imageUrl,
+    storagePath: storagePaths[index] || null,
+  }));
+}
+
+function uniqueStoragePaths(paths: Array<string | null | undefined>) {
+  return [...new Set(paths.filter((item): item is string => Boolean(item?.trim())))];
+}
+
 export async function saveTemplateSelectionAction(
   _prevState: DashboardActionState,
   formData: FormData,
 ): Promise<DashboardActionState> {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const template = String(formData.get("template") ?? "").trim();
 
   if (!template) {
@@ -63,17 +78,23 @@ export async function saveTemplateSelectionAction(
     config: nextTemplateConfig,
   });
 
-  await prisma.invitation.update({
-    where: { id: invitation.id },
-    data: {
+  const { error } = await supabase
+    .from("invitations")
+    .update({
       template,
-      templateConfig: nextTemplateConfig,
+      template_config: nextTemplateConfig,
       headline: generatedCopy.legacy.headline,
       subheadline: generatedCopy.legacy.subheadline,
       story: generatedCopy.legacy.story,
-      closingNote: generatedCopy.legacy.closingNote,
-    },
-  });
+      closing_note: generatedCopy.legacy.closingNote,
+    })
+    .eq("id", invitation.id);
+
+  if (error) {
+    return {
+      error: "Template aktif belum berhasil diperbarui.",
+    };
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/templates");
@@ -93,7 +114,8 @@ export async function saveSetupInvitationAction(
   formData: FormData,
 ): Promise<DashboardActionState> {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
 
   const parsedSetup = commonInvitationSetupSchema.safeParse(
     buildCommonInvitationSetupInput(formData),
@@ -129,15 +151,15 @@ export async function saveSetupInvitationAction(
     };
   }
 
-  const existingSlugOwner = await prisma.invitation.findFirst({
-    where: {
-      coupleSlug: parsedSetup.data.coupleSlug,
-      NOT: { ownerId: user.id },
-    },
-    select: { id: true },
-  });
+  const admin = getSupabaseAdminClient();
+  const { data: existingSlugOwner } = await admin
+    .from("invitations")
+    .select("id")
+    .eq("couple_slug", parsedSetup.data.coupleSlug)
+    .neq("owner_id", user.id)
+    .maybeSingle();
 
-  if (existingSlugOwner) {
+  if (existingSlugOwner?.id) {
     return {
       error: "Slug pasangan sudah dipakai. Coba variasi lain.",
     };
@@ -156,55 +178,75 @@ export async function saveSetupInvitationAction(
     config: nextTemplateConfig,
   });
 
-  await prisma.$transaction(async (tx) => {
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        partnerOneName: parsedSetup.data.partnerOneName,
-        partnerTwoName: parsedSetup.data.partnerTwoName,
-        coupleSlug: parsedSetup.data.coupleSlug,
-        headline: generatedCopy.legacy.headline,
-        subheadline: generatedCopy.legacy.subheadline,
-        story: generatedCopy.legacy.story,
-        closingNote: generatedCopy.legacy.closingNote,
-        templateConfig: nextTemplateConfig,
-        status: "DRAFT",
-        publishedAt: null,
-      },
-    });
+  const invitationUpdate = await supabase
+    .from("invitations")
+    .update({
+      partner_one_name: parsedSetup.data.partnerOneName,
+      partner_two_name: parsedSetup.data.partnerTwoName,
+      couple_slug: parsedSetup.data.coupleSlug,
+      headline: generatedCopy.legacy.headline,
+      subheadline: generatedCopy.legacy.subheadline,
+      story: generatedCopy.legacy.story,
+      closing_note: generatedCopy.legacy.closingNote,
+      template_config: nextTemplateConfig,
+      status: "DRAFT",
+      published_at: null,
+    })
+    .eq("id", invitation.id);
 
-    await tx.eventSlot.deleteMany({
-      where: { invitationId: invitation.id },
-    });
+  if (invitationUpdate.error) {
+    return {
+      error: "Draft setup invitation belum berhasil diperbarui.",
+    };
+  }
 
-    await tx.eventSlot.create({
-      data: {
-        invitationId: invitation.id,
-        label: parsedSetup.data.eventLabel,
-        startsAt,
-        venueName: parsedSetup.data.placeName,
-        address: parsedSetup.data.formattedAddress,
-        mapsUrl: parsedSetup.data.googleMapsUrl,
-        latitude: parsedSetup.data.latitude,
-        longitude: parsedSetup.data.longitude,
-        placeName: parsedSetup.data.placeName,
-        formattedAddress: parsedSetup.data.formattedAddress,
-        googleMapsUrl: parsedSetup.data.googleMapsUrl,
-        sortOrder: 0,
-      },
-    });
+  const deleteEventSlots = await supabase
+    .from("event_slots")
+    .delete()
+    .eq("invitation_id", invitation.id);
 
-    await tx.invitationSetting.upsert({
-      where: { invitationId: invitation.id },
-      update: {
-        isRsvpEnabled: parsedSetup.data.isRsvpEnabled,
-      },
-      create: {
-        invitationId: invitation.id,
-        isRsvpEnabled: parsedSetup.data.isRsvpEnabled,
-      },
-    });
+  if (deleteEventSlots.error) {
+    return {
+      error: "Jadwal acara lama belum berhasil dibersihkan.",
+    };
+  }
+
+  const insertEventSlot = await supabase.from("event_slots").insert({
+    invitation_id: invitation.id,
+    label: parsedSetup.data.eventLabel,
+    starts_at: startsAt.toISOString(),
+    venue_name: parsedSetup.data.placeName,
+    address: parsedSetup.data.formattedAddress,
+    maps_url: parsedSetup.data.googleMapsUrl,
+    latitude: parsedSetup.data.latitude,
+    longitude: parsedSetup.data.longitude,
+    place_name: parsedSetup.data.placeName,
+    formatted_address: parsedSetup.data.formattedAddress,
+    google_maps_url: parsedSetup.data.googleMapsUrl,
+    sort_order: 0,
   });
+
+  if (insertEventSlot.error) {
+    return {
+      error: "Jadwal acara baru belum berhasil disimpan.",
+    };
+  }
+
+  const upsertSettings = await supabase.from("invitation_settings").upsert(
+    {
+      invitation_id: invitation.id,
+      is_rsvp_enabled: parsedSetup.data.isRsvpEnabled,
+    },
+    {
+      onConflict: "invitation_id",
+    },
+  );
+
+  if (upsertSettings.error) {
+    return {
+      error: "Pengaturan RSVP invitation belum berhasil diperbarui.",
+    };
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/setup");
@@ -222,16 +264,22 @@ export async function saveMediaInvitationAction(
   formData: FormData,
 ): Promise<DashboardActionState> {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const coverImage = String(formData.get("coverImage") ?? "");
   const coverImageAlt = String(formData.get("coverImageAlt") ?? "");
+  const coverImageStoragePath = String(formData.get("coverImageStoragePath") ?? "");
   const galleryImages = formData
     .getAll("galleryImages")
     .map((value) => String(value))
     .filter(Boolean);
+  const galleryImageStoragePaths = formData
+    .getAll("galleryImageStoragePaths")
+    .map((value) => String(value));
   const musicUrl = String(formData.get("musicUrl") ?? "");
   const musicOriginalName = String(formData.get("musicOriginalName") ?? "");
   const musicMimeType = String(formData.get("musicMimeType") ?? "");
+  const musicStoragePath = String(formData.get("musicStoragePath") ?? "");
   const musicSizeRaw = String(formData.get("musicSize") ?? "");
   const musicSize = musicSizeRaw ? Number.parseInt(musicSizeRaw, 10) : null;
   const musicPresetId = String(formData.get("musicPresetId") ?? "");
@@ -252,42 +300,86 @@ export async function saveMediaInvitationAction(
     },
   );
   const resolvedMusicUrl = isUsingUploadedMusic ? musicUrl : selectedPreset?.url ?? "";
-  const resolvedMusicName = isUsingUploadedMusic
-    ? musicOriginalName
-    : selectedPreset?.title ?? "";
+  const resolvedMusicName = isUsingUploadedMusic ? musicOriginalName : selectedPreset?.title ?? "";
   const resolvedMusicMimeType = isUsingUploadedMusic
     ? musicMimeType
     : selectedPreset?.mimeType ?? "";
+  const resolvedMusicStoragePath = isUsingUploadedMusic ? musicStoragePath : null;
+  const galleryAssets = buildZippedGalleryAssets(galleryImages, galleryImageStoragePaths);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        coverImage: coverImage || null,
-        coverImageAlt: coverImageAlt || null,
-        musicUrl: resolvedMusicUrl || null,
-        musicOriginalName: resolvedMusicName || null,
-        musicMimeType: resolvedMusicMimeType || null,
-        musicSize: isUsingUploadedMusic && Number.isFinite(musicSize) ? musicSize : null,
-        templateConfig: nextTemplateConfig,
-      },
-    });
+  const updateInvitation = await supabase
+    .from("invitations")
+    .update({
+      cover_image_url: coverImage || null,
+      cover_image_alt: coverImageAlt || null,
+      cover_image_storage_path: coverImageStoragePath || null,
+      music_url: resolvedMusicUrl || null,
+      music_original_name: resolvedMusicName || null,
+      music_mime_type: resolvedMusicMimeType || null,
+      music_size: isUsingUploadedMusic && Number.isFinite(musicSize) ? musicSize : null,
+      music_storage_path: resolvedMusicStoragePath,
+      template_config: nextTemplateConfig,
+    })
+    .eq("id", invitation.id);
 
-    await tx.galleryImage.deleteMany({
-      where: { invitationId: invitation.id },
-    });
+  if (updateInvitation.error) {
+    return {
+      error: "Media invitation belum berhasil diperbarui.",
+    };
+  }
 
-    if (galleryImages.length > 0) {
-      await tx.galleryImage.createMany({
-        data: galleryImages.map((imageUrl, index) => ({
-          invitationId: invitation.id,
-          imageUrl,
-          altText: `${invitation.partnerOneName} & ${invitation.partnerTwoName}`,
-          sortOrder: index,
-        })),
-      });
+  const deleteGalleryRows = await supabase
+    .from("gallery_images")
+    .delete()
+    .eq("invitation_id", invitation.id);
+
+  if (deleteGalleryRows.error) {
+    return {
+      error: "Galeri invitation lama belum berhasil dibersihkan.",
+    };
+  }
+
+  if (galleryAssets.length > 0) {
+    const insertGalleryRows = await supabase.from("gallery_images").insert(
+      galleryAssets.map((asset, index) => ({
+        invitation_id: invitation.id,
+        image_url: asset.imageUrl,
+        storage_path: asset.storagePath,
+        alt_text: `${invitation.partnerOneName} & ${invitation.partnerTwoName}`,
+        sort_order: index,
+      })),
+    );
+
+    if (insertGalleryRows.error) {
+      return {
+        error: "Galeri invitation baru belum berhasil disimpan.",
+      };
     }
-  });
+  }
+
+  const nextGalleryStoragePaths = new Set(
+    galleryAssets.map((asset) => asset.storagePath).filter(Boolean),
+  );
+  const obsoleteStoragePaths = uniqueStoragePaths([
+    invitation.coverImageStoragePath !== coverImageStoragePath
+      ? invitation.coverImageStoragePath
+      : null,
+    invitation.musicStoragePath !== resolvedMusicStoragePath ? invitation.musicStoragePath : null,
+    ...invitation.galleryImages
+      .map((galleryImage) => galleryImage.storagePath)
+      .filter((storagePath) => storagePath && !nextGalleryStoragePaths.has(storagePath)),
+  ]);
+
+  if (obsoleteStoragePaths.length > 0) {
+    try {
+      await deleteStoredFiles(obsoleteStoragePaths);
+    } catch {
+      return {
+        error:
+          "Media baru sudah tersimpan, tetapi beberapa file lama di storage belum berhasil dibersihkan.",
+      };
+    }
+  }
 
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/setup");
@@ -305,7 +397,8 @@ export async function publishInvitationAction(
   void _prevState;
   void _formData;
   const user = await getAuthenticatedUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getDashboardInvitationSummary(user.id, supabase);
 
   if (!invitation) {
     return {
@@ -321,13 +414,19 @@ export async function publishInvitationAction(
     };
   }
 
-  await prisma.invitation.update({
-    where: { id: invitation.id },
-    data: {
+  const { error } = await supabase
+    .from("invitations")
+    .update({
       status: "PUBLISHED",
-      publishedAt: new Date(),
-    },
-  });
+      published_at: new Date().toISOString(),
+    })
+    .eq("id", invitation.id);
+
+  if (error) {
+    return {
+      error: "Invitation belum berhasil dipublish.",
+    };
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
@@ -344,7 +443,8 @@ export async function saveInvitationSettingsAction(
   formData: FormData,
 ): Promise<DashboardActionState> {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
 
   const parsedSettings = invitationSettingsSchema.safeParse({
     locale: formData.get("locale"),
@@ -366,14 +466,26 @@ export async function saveInvitationSettingsAction(
     };
   }
 
-  await prisma.invitationSetting.upsert({
-    where: { invitationId: invitation.id },
-    update: parsedSettings.data,
-    create: {
-      invitationId: invitation.id,
-      ...parsedSettings.data,
+  const { error } = await supabase.from("invitation_settings").upsert(
+    {
+      invitation_id: invitation.id,
+      locale: parsedSettings.data.locale,
+      timezone: parsedSettings.data.timezone,
+      is_rsvp_enabled: parsedSettings.data.isRsvpEnabled,
+      is_wish_enabled: parsedSettings.data.isWishEnabled,
+      auto_play_music: parsedSettings.data.autoPlayMusic,
+      preferred_send_channel: parsedSettings.data.preferredSendChannel,
     },
-  });
+    {
+      onConflict: "invitation_id",
+    },
+  );
+
+  if (error) {
+    return {
+      error: "Pengaturan invitation belum berhasil diperbarui.",
+    };
+  }
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/preview");
@@ -389,7 +501,8 @@ export async function addGuestAction(
   formData: FormData,
 ): Promise<DashboardActionState> {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const parsedGuest = guestSchema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone") || undefined,
@@ -403,26 +516,36 @@ export async function addGuestAction(
     };
   }
 
-  const currentGuests = await prisma.guest.findMany({
-    where: { invitationId: invitation.id },
-    select: { guestSlug: true },
-  });
+  const { data: currentGuests, error: currentGuestsError } = await supabase
+    .from("guests")
+    .select("guest_slug")
+    .eq("invitation_id", invitation.id);
+
+  if (currentGuestsError) {
+    return {
+      error: "Guest list saat ini belum berhasil dibaca.",
+    };
+  }
 
   const guestSlug = createUniqueGuestSlug(
     parsedGuest.data.name,
-    new Set(currentGuests.map((guest) => guest.guestSlug)),
+    new Set((currentGuests ?? []).map((guest) => guest.guest_slug)),
   );
 
-  await prisma.guest.create({
-    data: {
-      invitationId: invitation.id,
-      name: parsedGuest.data.name,
-      phone: parsedGuest.data.phone || null,
-      email: parsedGuest.data.email || null,
-      guestSlug,
-      source: "MANUAL",
-    },
+  const { error } = await supabase.from("guests").insert({
+    invitation_id: invitation.id,
+    name: parsedGuest.data.name,
+    phone: parsedGuest.data.phone || null,
+    email: parsedGuest.data.email || null,
+    guest_slug: guestSlug,
+    source: "MANUAL",
   });
+
+  if (error) {
+    return {
+      error: "Tamu belum berhasil ditambahkan.",
+    };
+  }
 
   revalidatePath("/dashboard/guests");
   revalidatePath("/dashboard");
@@ -436,7 +559,8 @@ export async function addGuestAction(
 
 export async function updateGuestAction(formData: FormData) {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const guestId = String(formData.get("guestId") ?? "");
   const parsedGuest = guestSchema.safeParse({
     name: formData.get("name"),
@@ -448,37 +572,37 @@ export async function updateGuestAction(formData: FormData) {
     return;
   }
 
-  const guest = await prisma.guest.findFirst({
-    where: { id: guestId, invitationId: invitation.id },
-    select: { id: true },
-  });
+  const { data: guest } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("id", guestId)
+    .eq("invitation_id", invitation.id)
+    .maybeSingle();
 
-  if (!guest) {
+  if (!guest?.id) {
     return;
   }
 
-  const currentGuests = await prisma.guest.findMany({
-    where: {
-      invitationId: invitation.id,
-      NOT: { id: guest.id },
-    },
-    select: { guestSlug: true },
-  });
+  const { data: currentGuests } = await supabase
+    .from("guests")
+    .select("guest_slug")
+    .eq("invitation_id", invitation.id)
+    .neq("id", guest.id);
 
   const guestSlug = createUniqueGuestSlug(
     parsedGuest.data.name,
-    new Set(currentGuests.map((item) => item.guestSlug)),
+    new Set((currentGuests ?? []).map((item) => item.guest_slug)),
   );
 
-  await prisma.guest.update({
-    where: { id: guest.id },
-    data: {
+  await supabase
+    .from("guests")
+    .update({
       name: parsedGuest.data.name,
       phone: parsedGuest.data.phone || null,
       email: parsedGuest.data.email || null,
-      guestSlug,
-    },
-  });
+      guest_slug: guestSlug,
+    })
+    .eq("id", guest.id);
 
   revalidatePath("/dashboard/guests");
   revalidatePath("/dashboard");
@@ -488,16 +612,19 @@ export async function updateGuestAction(formData: FormData) {
 
 export async function deleteGuestAction(formData: FormData) {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const guestId = String(formData.get("guestId") ?? "");
 
   if (!guestId) {
     return;
   }
 
-  await prisma.guest.deleteMany({
-    where: { id: guestId, invitationId: invitation.id },
-  });
+  await supabase
+    .from("guests")
+    .delete()
+    .eq("id", guestId)
+    .eq("invitation_id", invitation.id);
 
   revalidatePath("/dashboard/guests");
   revalidatePath("/dashboard");
@@ -507,7 +634,8 @@ export async function deleteGuestAction(formData: FormData) {
 
 export async function logManualSendAction(formData: FormData) {
   const user = await getAuthenticatedUser();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const supabase = await createServerSupabaseClient();
+  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
   const guestId = String(formData.get("guestId") ?? "");
   const requestedChannel = String(formData.get("channel") ?? "") as
     | "MANUAL"
@@ -518,39 +646,35 @@ export async function logManualSendAction(formData: FormData) {
     return;
   }
 
-  const guest = await prisma.guest.findFirst({
-    where: {
-      id: guestId,
-      invitationId: invitation.id,
-    },
-    select: {
-      id: true,
-      phone: true,
-      email: true,
-      name: true,
-    },
-  });
+  const { data: guest } = await supabase
+    .from("guests")
+    .select("id, phone, email, name")
+    .eq("id", guestId)
+    .eq("invitation_id", invitation.id)
+    .maybeSingle();
 
   if (!guest) {
     return;
   }
 
   const recipient =
-    requestedChannel === "EMAIL" ? guest.email : requestedChannel === "WHATSAPP" ? guest.phone : guest.phone ?? guest.email;
+    requestedChannel === "EMAIL"
+      ? guest.email
+      : requestedChannel === "WHATSAPP"
+        ? guest.phone
+        : guest.phone ?? guest.email;
 
   if (!recipient) {
     return;
   }
 
-  await prisma.sendLog.create({
-    data: {
-      invitationId: invitation.id,
-      guestId: guest.id,
-      channel: requestedChannel,
-      status: "SENT",
-      recipient,
-      sentAt: new Date(),
-    },
+  await supabase.from("send_logs").insert({
+    invitation_id: invitation.id,
+    guest_id: guest.id,
+    channel: requestedChannel,
+    status: "SENT",
+    recipient,
+    sent_at: new Date().toISOString(),
   });
 
   revalidatePath("/dashboard/send");
