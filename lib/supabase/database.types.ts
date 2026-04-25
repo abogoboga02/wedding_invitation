@@ -54,6 +54,8 @@ export type Database = {
           id: string;
           owner_id: string;
           template: InvitationTemplate;
+          template_name: string | null;
+          template_schema: Json | null;
           status: InvitationStatus;
           couple_slug: string;
           partner_one_name: string;
@@ -79,6 +81,8 @@ export type Database = {
           id?: string;
           owner_id: string;
           template?: InvitationTemplate;
+          template_name?: string | null;
+          template_schema?: Json | null;
           status?: InvitationStatus;
           couple_slug: string;
           partner_one_name: string;
@@ -104,6 +108,8 @@ export type Database = {
           id?: string;
           owner_id?: string;
           template?: InvitationTemplate;
+          template_name?: string | null;
+          template_schema?: Json | null;
           status?: InvitationStatus;
           couple_slug?: string;
           partner_one_name?: string;

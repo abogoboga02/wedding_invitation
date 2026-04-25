@@ -38,6 +38,8 @@ export type AdminUserRow = {
     id: string;
     coupleSlug: string;
     status: "DRAFT" | "PUBLISHED";
+    template: string;
+    templateName: string | null;
   } | null;
 };
 
@@ -246,7 +248,7 @@ export async function getAdminUsers() {
       "Gagal mengambil daftar user admin.",
     ),
     unwrapList(
-      await client.from("invitations").select("id, owner_id, couple_slug, status"),
+      await client.from("invitations").select("id, owner_id, couple_slug, status, template, template_name"),
       "Gagal mengambil invitation milik user.",
     ),
   ]);
@@ -258,6 +260,8 @@ export async function getAdminUsers() {
         id: invitation.id,
         coupleSlug: invitation.couple_slug,
         status: invitation.status,
+        template: invitation.template,
+        templateName: invitation.template_name,
       },
     ]),
   );

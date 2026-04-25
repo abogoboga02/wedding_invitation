@@ -14,7 +14,6 @@ export const dashboardNavigation: DashboardNavigationGroup[] = [
     title: "Workspace",
     items: [
       { href: "/dashboard", label: "Overview", shortLabel: "Home" },
-      { href: "/dashboard/templates", label: "Pilih Template", shortLabel: "Template" },
       { href: "/dashboard/setup", label: "Setup Undangan", shortLabel: "Setup" },
       { href: "/dashboard/media", label: "Media", shortLabel: "Media" },
     ],

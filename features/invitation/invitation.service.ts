@@ -13,6 +13,7 @@ import { buildCoupleSlug, generateUniqueSlug } from "@/lib/utils/slug";
 
 import type { InvitationRenderModel } from "./invitation.types";
 import { getInvitationTemplateSlug } from "./templates/template-slugs";
+import { getTemplateDisplayName, getTemplateSchema } from "./templates/template-schema";
 
 type SupabaseDbClient = SupabaseClient<Database>;
 type InvitationRow = TableRow<"invitations">;
@@ -180,6 +181,8 @@ export type InvitationRecord = {
   id: string;
   ownerId: string;
   template: InvitationTemplate;
+  templateName: string | null;
+  templateSchema: Json | null;
   status: InvitationStatus;
   coupleSlug: string;
   partnerOneName: string;
@@ -339,6 +342,8 @@ function mapInvitationRow(row: InvitationRow): InvitationRecord {
     id: row.id,
     ownerId: row.owner_id,
     template: row.template,
+    templateName: row.template_name,
+    templateSchema: row.template_schema,
     status: row.status,
     coupleSlug: row.couple_slug,
     partnerOneName: row.partner_one_name,
@@ -605,12 +610,17 @@ export async function createDefaultInvitation(
   userId: string,
   displayName = "Pengantin",
   client?: SupabaseDbClient,
+  options?: {
+    template?: InvitationTemplate;
+  },
 ) {
   const writableClient = await resolveServerClient(client);
   const partnerOneName = displayName;
   const partnerTwoName = "Pasangan";
-  const template = "KOREAN_SOFT" as const;
+  const template = options?.template ?? ("KOREAN_SOFT" as const);
   const templateConfig = getDefaultTemplateConfig(template);
+  const templateName = getTemplateDisplayName(template);
+  const templateSchema = getTemplateSchema(template) as Json;
   const generatedCopy = buildGeneratedInvitationCopy({
     templateSlug: getInvitationTemplateSlug(template),
     partnerOneName,
@@ -640,6 +650,8 @@ export async function createDefaultInvitation(
         owner_id: userId,
         status: "DRAFT",
         template,
+        template_name: templateName,
+        template_schema: templateSchema,
         couple_slug: coupleSlug,
         partner_one_name: partnerOneName,
         partner_two_name: partnerTwoName,

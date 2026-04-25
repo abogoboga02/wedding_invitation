@@ -35,7 +35,7 @@ export default async function DashboardPage() {
       <DashboardPageHeader
         eyebrow="Overview Dashboard"
         title="Ringkasan undangan, tamu, dan progres publish"
-        description="Mulai dari template, lanjut ke setup detail acara, lalu undang tamu menggunakan personal link yang otomatis dibuat sistem."
+        description="Template sudah ditentukan admin. Anda tinggal melengkapi detail acara lalu undang tamu menggunakan personal link."
         actions={
           <>
             <div className="hidden items-center sm:flex">
@@ -46,12 +46,6 @@ export default async function DashboardPage() {
               className="button-secondary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
             >
               Lengkapi Setup
-            </Link>
-            <Link
-              href="/dashboard/templates"
-              className="button-primary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
-            >
-              Pilih Template
             </Link>
           </>
         }
@@ -69,8 +63,8 @@ export default async function DashboardPage() {
         />
         <DashboardStatCard
           label="Template Aktif"
-          value={invitation.template.replaceAll("_", " ")}
-          helper="Satu invitation memakai satu template aktif."
+          value={invitation.templateName ?? invitation.template.replaceAll("_", " ")}
+          helper="Template ini dipilih oleh admin untuk akun Anda."
         />
         <DashboardStatCard
           label="Jumlah Tamu"
@@ -92,38 +86,32 @@ export default async function DashboardPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {[
               {
-                href: "/dashboard/templates",
-                step: "01",
-                title: "Pilih template",
-                body: "Tentukan suasana visual sebelum mengisi detail lain.",
-              },
-              {
                 href: "/dashboard/setup",
-                step: "02",
+                step: "01",
                 title: "Lengkapi setup undangan",
                 body: "Isi nama pasangan, jadwal acara, lokasi, dan cerita singkat.",
               },
               {
                 href: "/dashboard/media",
-                step: "03",
+                step: "02",
                 title: "Upload media",
                 body: "Tambahkan cover, galeri, dan siapkan musik pembuka.",
               },
               {
                 href: "/dashboard/guests",
-                step: "04",
+                step: "03",
                 title: "Tambah tamu",
                 body: "Sistem akan membuat personal link untuk setiap tamu.",
               },
               {
                 href: "/dashboard/send",
-                step: "05",
+                step: "04",
                 title: "Kirim undangan",
                 body: "Bagikan link satu per satu atau gunakan alur kirim bertahap.",
               },
               {
                 href: "/dashboard/analytics",
-                step: "06",
+                step: "05",
                 title: "Pantau hasil",
                 body: "Lihat RSVP, tamu yang belum respons, dan performa dasar undangan.",
               },
