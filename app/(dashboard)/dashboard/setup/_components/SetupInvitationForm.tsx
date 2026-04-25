@@ -240,7 +240,7 @@ function SetupInvitationFormEditor({
       return nextValues;
     });
     setErrors((currentErrors) => clearFieldErrors(currentErrors, [fieldName]));
-  }, []);
+  }
 
   const handleLocationChange = useCallback((value: LocationPickerValue) => {
     setLocationValue(value);
