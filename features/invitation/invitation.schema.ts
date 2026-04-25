@@ -32,10 +32,8 @@ function hasCompleteGiftEntry(label: string, accountName: string, accountNumber:
 
 export const commonInvitationSetupSchema = z
   .object({
-    partnerOneName: z.string().trim().min(2, "Nama pengantin pria wajib diisi."),
+    partnerOneName: z.string().trim().min(2, "Nama pengantin wajib diisi."),
     partnerTwoName: z.string().trim().min(2, "Nama pengantin wanita wajib diisi."),
-    partnerOneNickname: z.string().trim().max(40, "Nama panggilan pria terlalu panjang."),
-    partnerTwoNickname: z.string().trim().max(40, "Nama panggilan wanita terlalu panjang."),
     coupleSlug: z
       .string()
       .trim()
@@ -50,7 +48,9 @@ export const commonInvitationSetupSchema = z
     latitude: z.coerce.number().finite("Koordinat latitude belum valid."),
     longitude: z.coerce.number().finite("Koordinat longitude belum valid."),
     googleMapsUrl: z.string().trim().url("Google Maps URL belum valid."),
-    loveStoryNarrative: z.string().trim().max(800, "Love story terlalu panjang."),
+    loveStoryFirstMeeting: z.string().trim().max(400, "Cerita awal bertemu terlalu panjang."),
+    loveStoryProposal: z.string().trim().max(400, "Cerita lamaran terlalu panjang."),
+    loveStoryWedding: z.string().trim().max(400, "Cerita pernikahan terlalu panjang."),
     weddingGiftEnabled: z.boolean(),
     giftPrimaryType: z.enum(["bank", "ewallet"]),
     giftPrimaryLabel: z.string().trim().max(80, "Label gift utama terlalu panjang."),
@@ -124,8 +124,6 @@ export function buildCommonInvitationSetupInput(formData: FormData): CommonInvit
   return {
     partnerOneName: String(formData.get("partnerOneName") ?? ""),
     partnerTwoName: String(formData.get("partnerTwoName") ?? ""),
-    partnerOneNickname: String(formData.get("partnerOneNickname") ?? ""),
-    partnerTwoNickname: String(formData.get("partnerTwoNickname") ?? ""),
     coupleSlug: String(formData.get("coupleSlug") ?? ""),
     eventLabel: String(formData.get("eventLabel") ?? ""),
     eventDate: String(formData.get("eventDate") ?? ""),
@@ -135,7 +133,9 @@ export function buildCommonInvitationSetupInput(formData: FormData): CommonInvit
     latitude: Number(formData.get("latitude") ?? Number.NaN),
     longitude: Number(formData.get("longitude") ?? Number.NaN),
     googleMapsUrl: String(formData.get("googleMapsUrl") ?? ""),
-    loveStoryNarrative: String(formData.get("loveStoryNarrative") ?? ""),
+    loveStoryFirstMeeting: String(formData.get("loveStoryFirstMeeting") ?? ""),
+    loveStoryProposal: String(formData.get("loveStoryProposal") ?? ""),
+    loveStoryWedding: String(formData.get("loveStoryWedding") ?? ""),
     weddingGiftEnabled: formData.get("weddingGiftEnabled") === "on",
     giftPrimaryType: String(formData.get("giftPrimaryType") ?? "bank") as "bank" | "ewallet",
     giftPrimaryLabel: String(formData.get("giftPrimaryLabel") ?? ""),

@@ -16,6 +16,7 @@ import {
 } from "@/features/invitation/invitation.schema";
 import type { InvitationTemplate } from "@/lib/domain/types";
 import { toDateTimeLocalValue } from "@/lib/utils/date";
+import { buildCoupleSlug } from "@/lib/utils/slug";
 
 import type { DashboardActionState } from "../../_actions/dashboard-actions";
 import { saveSetupInvitationAction } from "../../_actions/dashboard-actions";
@@ -80,8 +81,7 @@ const coreSetupSections: SetupSectionDefinition[] = [
   {
     id: "identity",
     title: "Pasangan & link undangan",
-    description:
-      "Isi nama pasangan, nama panggilan, dan slug yang akan dipakai pada link undangan tamu.",
+    description: "Isi nama pasangan. Slug pasangan akan otomatis mengikuti nama yang diisi.",
     fields: getCommonSection("identity").fields,
   },
   {
@@ -94,9 +94,9 @@ const coreSetupSections: SetupSectionDefinition[] = [
   },
   {
     id: "story",
-    title: "Cerita singkat",
+    title: "Cerita Cinta",
     description:
-      "Copy utama akan otomatis mengikuti template. Anda cukup mengisi cerita singkat agar undangan tetap terasa personal.",
+      "Isi tiga tahap cerita agar tamu lebih mudah mengikuti perjalanan hubungan kalian.",
     fields: getCommonSection("story").fields,
   },
   {
@@ -122,13 +122,13 @@ function buildSetupFormValues(invitation: SetupInvitationFormProps["invitation"]
   return {
     partnerOneName: invitation.partnerOneName ?? "",
     partnerTwoName: invitation.partnerTwoName ?? "",
-    partnerOneNickname: normalizedTemplateConfig.copy.partnerNicknames.partnerOne ?? "",
-    partnerTwoNickname: normalizedTemplateConfig.copy.partnerNicknames.partnerTwo ?? "",
     coupleSlug: invitation.coupleSlug ?? "",
     eventLabel: mainEvent?.label ?? "Akad & Resepsi",
     eventDate,
     eventTime,
-    loveStoryNarrative: normalizedTemplateConfig.loveStory.narrative ?? "",
+    loveStoryFirstMeeting: normalizedTemplateConfig.loveStory.firstMeeting ?? "",
+    loveStoryProposal: normalizedTemplateConfig.loveStory.proposal ?? "",
+    loveStoryWedding: normalizedTemplateConfig.loveStory.wedding ?? "",
     weddingGiftEnabled: normalizedTemplateConfig.gift.enabled ?? false,
     giftPrimaryType: primaryGift?.type ?? "bank",
     giftPrimaryLabel: primaryGift?.label ?? "",
@@ -203,16 +203,42 @@ function SetupInvitationFormEditor({
   const [state, formAction] = useActionState(saveSetupInvitationAction, initialState);
   const [errors, setErrors] = useState<SetupFormErrors>({});
   const [formValues, setFormValues] = useState<SetupFormValues>(initialFormValues);
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(
+    initialFormValues.coupleSlug !==
+      buildCoupleSlug(
+        String(initialFormValues.partnerOneName ?? ""),
+        String(initialFormValues.partnerTwoName ?? ""),
+      ),
+  );
   const [locationValue, setLocationValue] = useState<LocationPickerValue>(initialLocationValue);
   const sectionClassName =
     "rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 sm:px-6";
   const setupSections = useMemo(() => coreSetupSections, []);
 
-  const handleFieldChange = useCallback((fieldName: string, value: TemplateConfigFieldValue) => {
-    setFormValues((currentValues) => ({
-      ...currentValues,
-      [fieldName]: value,
-    }));
+  function handleFieldChange(fieldName: string, value: TemplateConfigFieldValue) {
+    setFormValues((currentValues) => {
+      const nextValues = {
+        ...currentValues,
+        [fieldName]: value,
+      };
+
+      if (fieldName === "coupleSlug") {
+        setIsSlugManuallyEdited(true);
+        return nextValues;
+      }
+
+      if (
+        !isSlugManuallyEdited &&
+        (fieldName === "partnerOneName" || fieldName === "partnerTwoName")
+      ) {
+        nextValues.coupleSlug = buildCoupleSlug(
+          String(nextValues.partnerOneName ?? ""),
+          String(nextValues.partnerTwoName ?? ""),
+        );
+      }
+
+      return nextValues;
+    });
     setErrors((currentErrors) => clearFieldErrors(currentErrors, [fieldName]));
   }, []);
 

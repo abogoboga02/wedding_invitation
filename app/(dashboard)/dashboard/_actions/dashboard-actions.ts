@@ -83,8 +83,6 @@ export async function saveSetupInvitationAction(
       error:
         errors.partnerOneName?.[0] ??
         errors.partnerTwoName?.[0] ??
-        errors.partnerOneNickname?.[0] ??
-        errors.partnerTwoNickname?.[0] ??
         errors.coupleSlug?.[0] ??
         errors.eventLabel?.[0] ??
         errors.eventDate?.[0] ??
@@ -94,7 +92,9 @@ export async function saveSetupInvitationAction(
         errors.latitude?.[0] ??
         errors.longitude?.[0] ??
         errors.googleMapsUrl?.[0] ??
-        errors.loveStoryNarrative?.[0] ??
+        errors.loveStoryFirstMeeting?.[0] ??
+        errors.loveStoryProposal?.[0] ??
+        errors.loveStoryWedding?.[0] ??
         errors.giftPrimaryAccountNumber?.[0] ??
         errors.giftSecondaryAccountNumber?.[0] ??
         "Data setup undangan belum lengkap.",

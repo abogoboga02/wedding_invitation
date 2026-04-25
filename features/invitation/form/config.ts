@@ -84,6 +84,9 @@ type SharedTemplateConfig<TTheme> = {
     };
   };
   loveStory: {
+    firstMeeting: string;
+    proposal: string;
+    wedding: string;
     narrative: string;
   };
   gift: {
@@ -130,6 +133,9 @@ const commonTemplateConfigDefaults = {
     },
   },
   loveStory: {
+    firstMeeting: "",
+    proposal: "",
+    wedding: "",
     narrative: "",
   },
   gift: {
@@ -229,7 +235,7 @@ export const commonInvitationFormSections: InvitationFormSectionDefinition[] = [
     fields: [
       {
         name: "partnerOneName",
-        label: "Nama pengantin pria",
+        label: "Nama pengantin",
         type: "text",
         minLength: 2,
         maxLength: 80,
@@ -240,20 +246,6 @@ export const commonInvitationFormSections: InvitationFormSectionDefinition[] = [
         type: "text",
         minLength: 2,
         maxLength: 80,
-      },
-      {
-        name: "partnerOneNickname",
-        label: "Nama panggilan pria",
-        type: "text",
-        maxLength: 40,
-        placeholder: "Opsional, mis. Adrian",
-      },
-      {
-        name: "partnerTwoNickname",
-        label: "Nama panggilan wanita",
-        type: "text",
-        maxLength: 40,
-        placeholder: "Opsional, mis. Selma",
       },
       {
         name: "coupleSlug",
@@ -293,18 +285,35 @@ export const commonInvitationFormSections: InvitationFormSectionDefinition[] = [
   },
   {
     id: "story",
-    title: "Cerita singkat pasangan",
-    description:
-      "Template akan mengurus opening copy, heading, dan closing. Anda cukup menambahkan love story singkat agar undangan tetap terasa personal.",
+    title: "Cerita Cinta",
+    description: "Isi tiga momen utama perjalanan kalian agar alur cerita lebih jelas bagi tamu.",
     fields: [
       {
-        name: "loveStoryNarrative",
-        label: "Love story",
+        name: "loveStoryFirstMeeting",
+        label: "Awal Bertemu",
+        type: "textarea",
+        rows: 4,
+        maxLength: 400,
+        fullWidth: true,
+        placeholder: "Ceritakan bagaimana pertama kali kalian bertemu",
+      },
+      {
+        name: "loveStoryProposal",
+        label: "Lamaran",
+        type: "textarea",
+        rows: 4,
+        maxLength: 400,
+        fullWidth: true,
+        placeholder: "Ceritakan momen lamaran kalian",
+      },
+      {
+        name: "loveStoryWedding",
+        label: "Pernikahan",
         type: "textarea",
         rows: 5,
-        maxLength: 800,
+        maxLength: 400,
         fullWidth: true,
-        placeholder: "Ceritakan singkat bagaimana perjalanan kalian sampai ke hari bahagia ini.",
+        placeholder: "Ceritakan perjalanan menuju hari pernikahan",
       },
     ],
   },
@@ -511,6 +520,12 @@ export function normalizeTemplateConfig<T extends InvitationTemplate>(
       },
     },
     loveStory: {
+      firstMeeting: getStringValue(
+        loveStorySource.firstMeeting,
+        defaults.loveStory.firstMeeting,
+      ),
+      proposal: getStringValue(loveStorySource.proposal, defaults.loveStory.proposal),
+      wedding: getStringValue(loveStorySource.wedding, defaults.loveStory.wedding),
       narrative: getStringValue(loveStorySource.narrative, defaults.loveStory.narrative),
     },
     gift: {
@@ -599,17 +614,19 @@ export function buildTemplateConfigFromSetupForm<T extends InvitationTemplate>(
       readOptionalText(formData, "giftSecondaryNote"),
     ),
   ].filter((entry): entry is InvitationGiftEntry => Boolean(entry));
+  const firstMeeting = readOptionalText(formData, "loveStoryFirstMeeting");
+  const proposal = readOptionalText(formData, "loveStoryProposal");
+  const wedding = readOptionalText(formData, "loveStoryWedding");
+  const loveStoryNarrative = [firstMeeting, proposal, wedding].filter(Boolean).join("\n\n");
 
   return {
     ...normalized,
-    copy: {
-      partnerNicknames: {
-        partnerOne: readOptionalText(formData, "partnerOneNickname"),
-        partnerTwo: readOptionalText(formData, "partnerTwoNickname"),
-      },
-    },
+    copy: normalized.copy,
     loveStory: {
-      narrative: readOptionalText(formData, "loveStoryNarrative"),
+      firstMeeting,
+      proposal,
+      wedding,
+      narrative: loveStoryNarrative,
     },
     gift: {
       enabled: formData.get("weddingGiftEnabled") === "on",
@@ -645,12 +662,6 @@ export function getTemplateConfigSummaryEntries(
   rawConfig: unknown,
 ) {
   const normalized = normalizeTemplateConfig(template, rawConfig);
-  const nicknames = [
-    normalized.copy.partnerNicknames.partnerOne,
-    normalized.copy.partnerNicknames.partnerTwo,
-  ]
-    .filter(Boolean)
-    .join(" & ");
   const musicPreset = getMusicPresetById(normalized.music.presetId);
   const musicSummary =
     normalized.music.source === "upload"
@@ -671,14 +682,12 @@ export function getTemplateConfigSummaryEntries(
       value: templateToneLabels[template],
     },
     {
-      id: "nicknames",
-      label: "Nama Panggilan",
-      value: nicknames || "Pakai nama lengkap",
-    },
-    {
       id: "loveStory",
-      label: "Love Story",
-      value: normalized.loveStory.narrative.trim() ? "Sudah diisi" : "Pakai copy bawaan template",
+      label: "Cerita Cinta",
+      value:
+        normalized.loveStory.narrative.trim() || normalized.loveStory.firstMeeting.trim()
+          ? "Sudah diisi"
+          : "Pakai copy bawaan template",
     },
     {
       id: "weddingGift",
