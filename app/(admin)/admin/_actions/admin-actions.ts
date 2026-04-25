@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdminUser } from "@/lib/auth/guards";
+import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -84,6 +85,23 @@ export async function syncPlanCatalogAction() {
     },
   );
 
+  await admin.from("templates").upsert(
+    TEMPLATE_OPTIONS.map((template) => ({
+      template_id: template.id,
+      template_name: template.label,
+      template_slug: template.slug,
+      template_category: template.category,
+      template_preview: template.previewImage,
+      template_price: template.priceInIdr,
+      is_premium: template.isPremium,
+      is_active: true,
+    })),
+    {
+      onConflict: "template_id",
+    },
+  );
+
   revalidatePath("/admin/templates");
   revalidatePath("/admin/payments");
+  revalidatePath("/pricing");
 }
