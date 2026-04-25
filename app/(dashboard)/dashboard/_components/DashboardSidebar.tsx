@@ -10,7 +10,7 @@ export function DashboardSidebar() {
 
   return (
     <aside className="hidden xl:block">
-      <div className="surface-panel sticky top-6 rounded-[2rem] px-5 py-6">
+      <div className="surface-panel sticky top-24 rounded-[2rem] px-5 py-6">
         <div className="space-y-6">
           {dashboardNavigation.map((group) => (
             <div key={group.title} className="space-y-3">
@@ -25,10 +25,10 @@ export function DashboardSidebar() {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex rounded-[1.25rem] px-4 py-3 text-sm font-medium ${
+                      className={`flex rounded-[1.25rem] px-4 py-3 text-sm font-medium transition-colors ${
                         isActive
-                          ? "bg-[rgba(240,196,203,0.35)] text-[var(--color-text-primary)]"
-                          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-alt)] hover:text-[var(--color-text-primary)]"
+                          ? "bg-[rgba(240,196,203,0.28)] text-[var(--color-text-primary)]"
+                          : "text-[var(--color-text-secondary)] hover:bg-[rgba(247,242,236,0.8)] hover:text-[var(--color-text-primary)]"
                       }`}
                     >
                       {item.label}
