@@ -44,8 +44,10 @@ export function TemplateSelectionGrid({ activeTemplate }: TemplateSelectionGridP
           return (
             <article
               key={template.id}
-              className={`surface-card rounded-[2.2rem] p-5 ${
-                isSelected ? "ring-2 ring-[rgba(200,125,135,0.45)]" : ""
+              className={`surface-card rounded-[2.2rem] p-5 transition-colors ${
+                isSelected
+                  ? "ring-2 ring-[rgba(200,125,135,0.38)]"
+                  : "hover:border-[rgba(156,109,130,0.28)]"
               }`}
             >
               <div
