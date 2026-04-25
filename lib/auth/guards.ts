@@ -1,35 +1,35 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import type { AuthenticatedAppUser } from "@/lib/domain/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-async function getAuthenticatedSessionUser(): Promise<AuthenticatedAppUser> {
+const getAuthenticatedSessionUser = cache(async (): Promise<AuthenticatedAppUser> => {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
 
-  if (!authUser?.id) {
+  if (!claims?.sub) {
     redirect("/login");
   }
 
   const { data: profile } = await supabase
     .from("users")
     .select("id, name, email, role")
-    .eq("id", authUser.id)
+    .eq("id", claims.sub)
     .maybeSingle();
 
   return {
-    id: authUser.id,
-    name: profile?.name ?? authUser.user_metadata.name ?? null,
-    email: profile?.email ?? authUser.email ?? null,
+    id: claims.sub,
+    name: profile?.name ?? claims.user_metadata?.name ?? null,
+    email: profile?.email ?? claims.email ?? null,
     role:
       profile?.role ??
-      (authUser.app_metadata.role === "ADMIN" || authUser.user_metadata.role === "ADMIN"
+      (claims.app_metadata?.role === "ADMIN" || claims.user_metadata?.role === "ADMIN"
         ? "ADMIN"
         : "CLIENT"),
   };
-}
+});
 
 export async function requireAuthenticatedUser() {
   return getAuthenticatedSessionUser();

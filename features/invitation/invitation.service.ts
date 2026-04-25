@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestMaybeSingleResponse, SupabaseClient } from "@supabase/supabase-js";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
@@ -21,6 +21,32 @@ type GalleryImageRow = TableRow<"gallery_images">;
 type GuestRow = TableRow<"guests">;
 type RsvpRow = TableRow<"rsvps">;
 type WishRow = TableRow<"wishes">;
+
+type DashboardInvitationSummaryRow = InvitationRow & {
+  invitation_settings?: InvitationSettingRow | InvitationSettingRow[] | null;
+  event_slots?: EventSlotRow[] | null;
+  gallery_images?: GalleryImageRow[] | null;
+  guests?:
+    | Array<
+        GuestRow & {
+          rsvps?: RsvpRow | RsvpRow[] | null;
+          wishes?: WishRow | WishRow[] | null;
+        }
+      >
+    | null;
+};
+
+const DASHBOARD_INVITATION_SUMMARY_SELECT = `
+  *,
+  invitation_settings (*),
+  event_slots (*),
+  gallery_images (*),
+  guests (
+    *,
+    rsvps (*),
+    wishes (*)
+  )
+`;
 
 export type InvitationRecord = {
   id: string;
@@ -294,6 +320,55 @@ function mapWishRow(row: WishRow): WishRecord {
   };
 }
 
+function firstEmbeddedRow<T>(value?: T | T[] | null) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function embeddedRows<T>(value?: T | T[] | null) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return value ? [value] : [];
+}
+
+function mapDashboardInvitationSummaryRow(
+  row: DashboardInvitationSummaryRow,
+): DashboardInvitationSummary {
+  const invitation = mapInvitationRow(row);
+  const settingRow = firstEmbeddedRow(row.invitation_settings);
+  const eventSlots = embeddedRows(row.event_slots)
+    .map(mapEventSlotRow)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+  const galleryImages = embeddedRows(row.gallery_images)
+    .map(mapGalleryImageRow)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+  const guests = embeddedRows(row.guests)
+    .map((guestRow) => {
+      const rsvpRow = firstEmbeddedRow(guestRow.rsvps);
+      const wishRow = firstEmbeddedRow(guestRow.wishes);
+
+      return {
+        ...mapGuestRow(guestRow),
+        rsvp: rsvpRow ? mapRsvpRow(rsvpRow) : null,
+        wish: wishRow ? mapWishRow(wishRow) : null,
+      };
+    })
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+
+  return {
+    ...invitation,
+    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
+    eventSlots,
+    galleryImages,
+    guests,
+  };
+}
+
 async function resolveServerClient(client?: SupabaseDbClient) {
   return client ?? (await createServerSupabaseClient());
 }
@@ -355,57 +430,6 @@ async function getInvitationRelations(invitationId: string, client: SupabaseDbCl
     setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
     eventSlots: eventSlotRows.map(mapEventSlotRow),
     galleryImages: galleryRows.map(mapGalleryImageRow),
-  };
-}
-
-async function getGuestsWithRelations(invitationId: string, client: SupabaseDbClient) {
-  const guestRows = await unwrapList<GuestRow>(
-    await client
-      .from("guests")
-      .select("*")
-      .eq("invitation_id", invitationId)
-      .order("created_at", { ascending: false }),
-    "Gagal mengambil guest list invitation.",
-  );
-  const guests = guestRows.map(mapGuestRow);
-
-  if (guests.length === 0) {
-    return [] satisfies DashboardInvitationGuest[];
-  }
-
-  const guestIds = guests.map((guest) => guest.id);
-  const [rsvpRows, wishRows] = await Promise.all([
-    unwrapList<RsvpRow>(
-      await client.from("rsvps").select("*").in("guest_id", guestIds),
-      "Gagal mengambil data RSVP invitation.",
-    ),
-    unwrapList<WishRow>(
-      await client.from("wishes").select("*").in("guest_id", guestIds),
-      "Gagal mengambil ucapan invitation.",
-    ),
-  ]);
-
-  const rsvpByGuestId = new Map(rsvpRows.map((row) => [row.guest_id, mapRsvpRow(row)]));
-  const wishByGuestId = new Map(wishRows.map((row) => [row.guest_id, mapWishRow(row)]));
-
-  return guests.map((guest) => ({
-    ...guest,
-    rsvp: rsvpByGuestId.get(guest.id) ?? null,
-    wish: wishByGuestId.get(guest.id) ?? null,
-  }));
-}
-
-async function hydrateInvitationSummary(
-  invitation: InvitationRecord,
-  client: SupabaseDbClient,
-): Promise<DashboardInvitationSummary> {
-  const relations = await getInvitationRelations(invitation.id, client);
-  const guests = await getGuestsWithRelations(invitation.id, client);
-
-  return {
-    ...invitation,
-    ...relations,
-    guests,
   };
 }
 
@@ -556,15 +580,17 @@ export async function getOrCreateDashboardInvitation(
 
 export async function getDashboardInvitationSummary(userId: string, client?: SupabaseDbClient) {
   const readableClient = await resolveServerClient(client);
-  const invitation = await getInvitationBaseByOwnerId(userId, readableClient);
+  const response = await readableClient
+    .from("invitations")
+    .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
+    response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
+    "Gagal mengambil ringkasan invitation.",
+  );
 
-  if (!invitation) {
-    return null;
-  }
-
-  await ensureInvitationSetting(invitation.id, readableClient);
-
-  return hydrateInvitationSummary(invitation, readableClient);
+  return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
 }
 
 export function mapInvitationToRenderModel(
@@ -672,9 +698,10 @@ export async function trackInvitationOpen(
 export async function getDashboardAnalyticsSummary(
   userId: string,
   client?: SupabaseDbClient,
+  existingInvitation?: DashboardInvitationSummary | null,
 ): Promise<DashboardAnalyticsSummary | null> {
   const readableClient = await resolveServerClient(client);
-  const invitation = await getDashboardInvitationSummary(userId, readableClient);
+  const invitation = existingInvitation ?? (await getDashboardInvitationSummary(userId, readableClient));
 
   if (!invitation) {
     return null;

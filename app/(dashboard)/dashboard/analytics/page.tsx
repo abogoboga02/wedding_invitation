@@ -11,7 +11,7 @@ import { DashboardStatCard } from "../_components/DashboardStatCard";
 export default async function DashboardAnalyticsPage() {
   const user = await requireClientUser();
   const invitation = await getDashboardInvitationSummary(user.id);
-  const analytics = await getDashboardAnalyticsSummary(user.id);
+  const analytics = await getDashboardAnalyticsSummary(user.id, undefined, invitation);
 
   if (!invitation || !analytics) {
     return null;
