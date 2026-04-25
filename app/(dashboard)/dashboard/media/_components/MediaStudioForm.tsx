@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import type { InvitationTemplateConfigValues } from "@/features/invitation/form/config";
@@ -11,6 +11,8 @@ import { MediaUploader } from "../../_components/MediaUploader";
 import { MusicPresetPicker } from "./MusicPresetPicker";
 
 type MediaStudioFormProps = {
+  partnerOneName: string;
+  partnerTwoName: string;
   templateConfig: InvitationTemplateConfigValues;
   coverImage: string | null;
   coverImageAlt: string | null;
@@ -26,6 +28,8 @@ type MediaStudioFormProps = {
 const initialState: DashboardActionState = {};
 
 export function MediaStudioForm({
+  partnerOneName,
+  partnerTwoName,
   templateConfig,
   coverImage,
   coverImageAlt,
@@ -38,9 +42,75 @@ export function MediaStudioForm({
   musicStoragePath,
 }: MediaStudioFormProps) {
   const [state, formAction] = useActionState(saveMediaInvitationAction, initialState);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error">("success");
+  const [activeUploads, setActiveUploads] = useState(0);
+  const [manualCoverAlt, setManualCoverAlt] = useState(Boolean(coverImageAlt?.trim()));
+
+  const defaultCoverAlt = useMemo(() => {
+    const groom = partnerOneName.trim();
+    const bride = partnerTwoName.trim();
+
+    if (groom && bride) {
+      return `Undangan pernikahan ${groom} dan ${bride}`;
+    }
+
+    return "Cover undangan pernikahan digital";
+  }, [partnerOneName, partnerTwoName]);
+
+  const coverAltValue = manualCoverAlt ? coverImageAlt ?? "" : defaultCoverAlt;
+  const isUploading = activeUploads > 0;
+
+  useEffect(() => {
+    if (state.success) {
+      setToastType("success");
+      setToastMessage("Media berhasil disimpan");
+      return;
+    }
+
+    if (state.error) {
+      setToastType("error");
+      setToastMessage(state.error);
+    }
+  }, [state.error, state.success]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
+  function handleUploadStateChange(isUploaderBusy: boolean) {
+    setActiveUploads((currentCount) => {
+      if (isUploaderBusy) {
+        return currentCount + 1;
+      }
+
+      return Math.max(0, currentCount - 1);
+    });
+  }
 
   return (
     <form action={formAction} className="space-y-6">
+      {toastMessage ? (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+          <p
+            className={`rounded-full px-4 py-2 text-sm font-medium text-white shadow-lg ${
+              toastType === "success" ? "bg-[var(--color-success)]" : "bg-[var(--color-error)]"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {toastMessage}
+          </p>
+        </div>
+      ) : null}
       {state.error ? (
         <p className="rounded-[1.4rem] border border-[rgba(181,87,99,0.22)] bg-[rgba(181,87,99,0.08)] px-4 py-3 text-sm text-[var(--color-error)]">
           {state.error}
@@ -63,6 +133,7 @@ export function MediaStudioForm({
         metadataFieldNames={{
           storagePath: "coverImageStoragePath",
         }}
+        onUploadStateChange={handleUploadStateChange}
       />
 
       <label className="block space-y-2 rounded-[2rem] border border-[var(--color-border)] bg-white p-5">
@@ -71,7 +142,10 @@ export function MediaStudioForm({
         </span>
         <input
           name="coverImageAlt"
-          defaultValue={coverImageAlt ?? ""}
+          defaultValue={coverAltValue}
+          onChange={() => {
+            setManualCoverAlt(true);
+          }}
           className="w-full rounded-[1.3rem] border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary-strong)]"
           placeholder="Contoh: Potret editorial pasangan di taman"
         />
@@ -90,6 +164,7 @@ export function MediaStudioForm({
         metadataFieldNames={{
           storagePath: "galleryImageStoragePaths",
         }}
+        onUploadStateChange={handleUploadStateChange}
       />
 
       <MediaUploader
@@ -116,6 +191,7 @@ export function MediaStudioForm({
           size: "musicSize",
           storagePath: "musicStoragePath",
         }}
+        onUploadStateChange={handleUploadStateChange}
       />
 
       <MusicPresetPicker
@@ -125,9 +201,10 @@ export function MediaStudioForm({
 
       <SubmitButton
         pendingLabel="Menyimpan media..."
+        disabled={isUploading}
         className="button-primary rounded-full px-6 py-3.5 text-sm font-semibold"
       >
-        Simpan Media
+        {isUploading ? "Tunggu upload selesai..." : "Simpan Media"}
       </SubmitButton>
     </form>
   );

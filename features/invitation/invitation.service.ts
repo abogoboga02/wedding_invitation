@@ -48,6 +48,54 @@ const DASHBOARD_INVITATION_SUMMARY_SELECT = `
   )
 `;
 
+type DashboardMediaSummaryRow = Pick<
+  InvitationRow,
+  | "id"
+  | "template"
+  | "template_config"
+  | "partner_one_name"
+  | "partner_two_name"
+  | "cover_image_url"
+  | "cover_image_alt"
+  | "cover_image_storage_path"
+  | "music_url"
+  | "music_original_name"
+  | "music_mime_type"
+  | "music_size"
+  | "music_storage_path"
+> & {
+  gallery_images?: Array<
+    Pick<
+      GalleryImageRow,
+      "id" | "image_url" | "storage_path" | "alt_text" | "sort_order" | "created_at"
+    >
+  > | null;
+};
+
+const DASHBOARD_MEDIA_SUMMARY_SELECT = `
+  id,
+  template,
+  template_config,
+  partner_one_name,
+  partner_two_name,
+  cover_image_url,
+  cover_image_alt,
+  cover_image_storage_path,
+  music_url,
+  music_original_name,
+  music_mime_type,
+  music_size,
+  music_storage_path,
+  gallery_images (
+    id,
+    image_url,
+    storage_path,
+    alt_text,
+    sort_order,
+    created_at
+  )
+`;
+
 export type InvitationRecord = {
   id: string;
   ownerId: string;
@@ -162,6 +210,24 @@ export type DashboardInvitationGuest = GuestRecord & {
 export type DashboardInvitationSummary = InvitationWithRelations & {
   guests: DashboardInvitationGuest[];
 };
+
+export type DashboardMediaSummary = Pick<
+  InvitationWithRelations,
+  | "id"
+  | "template"
+  | "templateConfig"
+  | "partnerOneName"
+  | "partnerTwoName"
+  | "coverImage"
+  | "coverImageAlt"
+  | "coverImageStoragePath"
+  | "musicUrl"
+  | "musicOriginalName"
+  | "musicMimeType"
+  | "musicSize"
+  | "musicStoragePath"
+  | "galleryImages"
+>;
 
 export type PublicWish = {
   id: string;
@@ -591,6 +657,48 @@ export async function getDashboardInvitationSummary(userId: string, client?: Sup
   );
 
   return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+}
+
+export async function getDashboardMediaSummary(userId: string, client?: SupabaseDbClient) {
+  const readableClient = await resolveServerClient(client);
+  const response = await readableClient
+    .from("invitations")
+    .select(DASHBOARD_MEDIA_SUMMARY_SELECT)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  const invitation = await unwrapMaybeSingle<DashboardMediaSummaryRow>(
+    response as unknown as PostgrestMaybeSingleResponse<DashboardMediaSummaryRow>,
+    "Gagal mengambil ringkasan media invitation.",
+  );
+
+  if (!invitation) {
+    return null;
+  }
+
+  return {
+    id: invitation.id,
+    template: invitation.template,
+    templateConfig: invitation.template_config,
+    partnerOneName: invitation.partner_one_name,
+    partnerTwoName: invitation.partner_two_name,
+    coverImage: invitation.cover_image_url,
+    coverImageAlt: invitation.cover_image_alt,
+    coverImageStoragePath: invitation.cover_image_storage_path,
+    musicUrl: invitation.music_url,
+    musicOriginalName: invitation.music_original_name,
+    musicMimeType: invitation.music_mime_type,
+    musicSize: invitation.music_size,
+    musicStoragePath: invitation.music_storage_path,
+    galleryImages: embeddedRows(invitation.gallery_images)
+      .map((row) =>
+        mapGalleryImageRow({
+          ...row,
+          invitation_id: invitation.id,
+          updated_at: row.created_at,
+        }),
+      )
+      .sort((left, right) => left.sortOrder - right.sortOrder),
+  };
 }
 
 export function mapInvitationToRenderModel(

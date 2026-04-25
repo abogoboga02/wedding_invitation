@@ -1,5 +1,5 @@
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
-import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { getDashboardMediaSummary } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
@@ -8,7 +8,7 @@ import { MediaStudioForm } from "./_components/MediaStudioForm";
 
 export default async function DashboardMediaPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const invitation = await getDashboardMediaSummary(user.id);
 
   if (!invitation) {
     return null;
@@ -23,6 +23,8 @@ export default async function DashboardMediaPage() {
       />
 
       <MediaStudioForm
+        partnerOneName={invitation.partnerOneName}
+        partnerTwoName={invitation.partnerTwoName}
         templateConfig={normalizeTemplateConfig(invitation.template, invitation.templateConfig)}
         coverImage={invitation.coverImage}
         coverImageAlt={invitation.coverImageAlt}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
@@ -204,8 +204,35 @@ function SetupInvitationFormEditor({
   const [errors, setErrors] = useState<SetupFormErrors>({});
   const [formValues, setFormValues] = useState<SetupFormValues>(initialFormValues);
   const [locationValue, setLocationValue] = useState<LocationPickerValue>(initialLocationValue);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error">("success");
   const sectionClassName =
     "rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 sm:px-6";
+
+  useEffect(() => {
+    if (state.success) {
+      setToastType("success");
+      setToastMessage("Draft berhasil disimpan");
+      return;
+    }
+
+    if (state.error) {
+      setToastType("error");
+      setToastMessage("Gagal menyimpan draft. Coba lagi.");
+    }
+  }, [state.error, state.success]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
 
   function handleFieldChange(fieldName: string, value: TemplateConfigFieldValue) {
     setFormValues((currentValues) => ({
@@ -251,6 +278,19 @@ function SetupInvitationFormEditor({
         setErrors({});
       }}
     >
+      {toastMessage ? (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+          <p
+            className={`rounded-full px-4 py-2 text-sm font-medium text-white shadow-lg ${
+              toastType === "success" ? "bg-[var(--color-success)]" : "bg-[var(--color-error)]"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {toastMessage}
+          </p>
+        </div>
+      ) : null}
       {state.error ? (
         <p className="rounded-[1.35rem] border border-[rgba(181,87,99,0.22)] bg-[rgba(181,87,99,0.08)] px-4 py-3 text-sm text-[var(--color-error)]">
           {state.error}

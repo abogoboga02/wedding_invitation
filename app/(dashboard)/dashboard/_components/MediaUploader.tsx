@@ -21,6 +21,7 @@ type MediaUploaderProps = {
   multiple?: boolean;
   initialAssets?: MediaAsset[];
   metadataFieldNames?: Partial<Record<"originalName" | "mimeType" | "size" | "storagePath", string>>;
+  onUploadStateChange?: (isUploading: boolean) => void;
 };
 
 function buttonClass() {
@@ -47,11 +48,13 @@ export function MediaUploader({
   multiple = false,
   initialAssets = [],
   metadataFieldNames,
+  onUploadStateChange,
 }: MediaUploaderProps) {
   const [assets, setAssets] = useState(initialAssets);
   const [error, setError] = useState<string>();
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const inputAccept = useMemo(() => {
     if (kind === "music") {
@@ -60,6 +63,54 @@ export function MediaUploader({
 
     return "image/jpeg,image/png,image/webp";
   }, [kind]);
+
+  async function compressImageFile(file: File): Promise<File> {
+    if (kind === "music" || file.size <= 350 * 1024 || !file.type.startsWith("image/")) {
+      return file;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const nextImage = new window.Image();
+        nextImage.onload = () => resolve(nextImage);
+        nextImage.onerror = () => reject(new Error("Gagal membaca gambar."));
+        nextImage.src = objectUrl;
+      });
+
+      const maxDimension = 2000;
+      const scale = Math.min(maxDimension / image.width, maxDimension / image.height, 1);
+      const targetWidth = Math.max(1, Math.round(image.width * scale));
+      const targetHeight = Math.max(1, Math.round(image.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        return file;
+      }
+
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+      const compressedBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/webp", 0.82);
+      });
+
+      if (!compressedBlob || compressedBlob.size >= file.size) {
+        return file;
+      }
+
+      const compressedFileName = file.name.replace(/\.[a-zA-Z0-9]+$/, "") || "image";
+
+      return new File([compressedBlob], `${compressedFileName}.webp`, {
+        type: "image/webp",
+      });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 
   async function uploadFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList);
@@ -70,34 +121,90 @@ export function MediaUploader({
 
     setError(undefined);
     setIsUploading(true);
+    setUploadProgress(0);
+    onUploadStateChange?.(true);
+
+    const optimizedFiles =
+      kind === "music" ? files : await Promise.all(files.map((file) => compressImageFile(file)));
+
+    const uniqueFiles = optimizedFiles.filter((file) => {
+      const alreadyExists = assets.some(
+        (asset) =>
+          asset.originalName === file.name &&
+          asset.size === file.size &&
+          asset.mimeType === file.type,
+      );
+
+      return !alreadyExists;
+    });
+
+    if (uniqueFiles.length === 0) {
+      setError("File yang sama sudah ada. Pilih file lain untuk diunggah.");
+      setIsUploading(false);
+      setUploadProgress(null);
+      onUploadStateChange?.(false);
+      return;
+    }
 
     const payload = new FormData();
     payload.append("kind", kind);
-    files.forEach((file) => payload.append("files", file));
+    uniqueFiles.forEach((file) => payload.append("files", file));
 
     startTransition(async () => {
-      const response = await fetch("/api/uploads", {
-        method: "POST",
-        body: payload,
-      });
+      try {
+        const response = await new Promise<Response>((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open("POST", "/api/uploads");
+          request.responseType = "text";
+          request.upload.onprogress = (event) => {
+            if (!event.lengthComputable) {
+              return;
+            }
 
-      const data = (await response.json()) as {
-        error?: string;
-        assets?: MediaAsset[];
-      };
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          };
+          request.onload = () => {
+            resolve(
+              new Response(request.responseText, {
+                status: request.status,
+                statusText: request.statusText,
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }),
+            );
+          };
+          request.onerror = () => reject(new Error("Gagal terhubung ke server upload."));
+          request.send(payload);
+        });
 
-      if (!response.ok || !data.assets) {
-        setError(data.error ?? "Upload belum berhasil.");
+        const data = (await response.json()) as {
+          error?: string;
+          assets?: MediaAsset[];
+        };
+
+        if (!response.ok || !data.assets) {
+          setError(data.error ?? "Upload belum berhasil.");
+          setIsUploading(false);
+          setUploadProgress(null);
+          onUploadStateChange?.(false);
+          return;
+        }
+
+        const uploadedAssets = data.assets;
+
+        setAssets((currentAssets) =>
+          multiple ? [...currentAssets, ...uploadedAssets] : uploadedAssets.slice(0, 1),
+        );
         setIsUploading(false);
-        return;
+        setUploadProgress(null);
+        onUploadStateChange?.(false);
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "Upload belum berhasil.");
+        setIsUploading(false);
+        setUploadProgress(null);
+        onUploadStateChange?.(false);
       }
-
-      const uploadedAssets = data.assets;
-
-      setAssets((currentAssets) =>
-        multiple ? [...currentAssets, ...uploadedAssets] : uploadedAssets.slice(0, 1),
-      );
-      setIsUploading(false);
     });
   }
 
@@ -129,17 +236,23 @@ export function MediaUploader({
       </div>
 
       <label
-        className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-[1.6rem] border border-dashed px-4 py-6 text-center transition ${
+        className={`flex min-h-36 flex-col items-center justify-center rounded-[1.6rem] border border-dashed px-4 py-6 text-center transition ${
           isDragging
             ? "border-[var(--color-primary-strong)] bg-white"
             : "border-[var(--color-border)] bg-white"
-        }`}
+        } ${isUploading ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
         onDragOver={(event) => {
+          if (isUploading) {
+            return;
+          }
           event.preventDefault();
           setIsDragging(true);
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(event) => {
+          if (isUploading) {
+            return;
+          }
           event.preventDefault();
           setIsDragging(false);
           void uploadFiles(event.dataTransfer.files);
@@ -149,6 +262,7 @@ export function MediaUploader({
           type="file"
           accept={inputAccept}
           multiple={multiple}
+          disabled={isUploading}
           onChange={(event) => {
             if (event.target.files?.length) {
               void uploadFiles(event.target.files);
@@ -158,7 +272,9 @@ export function MediaUploader({
           className="sr-only"
         />
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-          {isUploading ? "Mengunggah file..." : "Drag & drop atau pilih file"}
+          {isUploading
+            ? `Mengunggah file${uploadProgress !== null ? ` (${uploadProgress}%)` : "..."}`
+            : "Drag & drop atau pilih file"}
         </p>
         <p className="mt-2 max-w-sm text-xs leading-6 text-[var(--color-text-secondary)]">
           {kind === "music"
@@ -221,16 +337,18 @@ export function MediaUploader({
                 <div className="flex flex-wrap gap-2">
                   {multiple ? (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => moveAsset(index, "left")}
-                        className={buttonClass()}
-                      >
+                  <button
+                    type="button"
+                    onClick={() => moveAsset(index, "left")}
+                    disabled={isUploading}
+                    className={buttonClass()}
+                  >
                         Geser kiri
                       </button>
                       <button
                         type="button"
                         onClick={() => moveAsset(index, "right")}
+                        disabled={isUploading}
                         className={buttonClass()}
                       >
                         Geser kanan
@@ -240,6 +358,7 @@ export function MediaUploader({
                   <button
                     type="button"
                     onClick={() => removeAsset(asset.url)}
+                    disabled={isUploading}
                     className={buttonClass()}
                   >
                     Hapus
