@@ -1,9 +1,19 @@
+import dynamic from "next/dynamic";
+
 import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
-
-import { TemplateSelectionGrid } from "./_components/TemplateSelectionGrid";
+const TemplateSelectionGrid = dynamic(
+  () => import("./_components/TemplateSelectionGrid").then((mod) => mod.TemplateSelectionGrid),
+  {
+    loading: () => (
+      <div className="rounded-[1.5rem] border border-[var(--color-border)] bg-white px-5 py-6 text-sm text-[var(--color-text-secondary)]">
+        Memuat galeri template...
+      </div>
+    ),
+  },
+);
 
 export default async function DashboardTemplatesPage() {
   const user = await requireClientUser();

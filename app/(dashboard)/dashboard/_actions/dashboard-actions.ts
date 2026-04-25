@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { guestSchema } from "@/features/guest/guest.schema";
 import { createUniqueGuestSlug } from "@/features/guest/guest.service";
@@ -15,6 +15,7 @@ import {
   commonInvitationSetupSchema,
 } from "@/features/invitation/invitation.schema";
 import {
+  dashboardCacheTags,
   getDashboardInvitationSummary,
   getOrCreateDashboardInvitation,
   validateInvitationPublishability,
@@ -49,6 +50,11 @@ function buildZippedGalleryAssets(urls: string[], storagePaths: string[]) {
 
 function uniqueStoragePaths(paths: Array<string | null | undefined>) {
   return [...new Set(paths.filter((item): item is string => Boolean(item?.trim())))];
+}
+
+function revalidateDashboardCaches() {
+  revalidateTag(dashboardCacheTags.invitationSummary);
+  revalidateTag(dashboardCacheTags.analyticsSummary);
 }
 
 export async function saveTemplateSelectionAction(
@@ -100,6 +106,7 @@ export async function saveTemplateSelectionAction(
   revalidatePath("/dashboard/templates");
   revalidatePath("/dashboard/setup");
   revalidatePath("/dashboard/preview");
+  revalidateDashboardCaches();
 
   return {
     success:
@@ -253,6 +260,7 @@ export async function saveSetupInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/settings");
+  revalidateDashboardCaches();
 
   return {
     success: "Setup undangan berhasil diperbarui sebagai draft. Publish ulang untuk mengaktifkan link publik.",
@@ -384,6 +392,7 @@ export async function saveMediaInvitationAction(
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/setup");
   revalidatePath("/dashboard/preview");
+  revalidateDashboardCaches();
 
   return {
     success: "Media invitation berhasil diperbarui.",
@@ -432,6 +441,7 @@ export async function publishInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: "Invitation berhasil dipublish dan link personal sudah aktif.",
@@ -490,6 +500,7 @@ export async function saveInvitationSettingsAction(
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: "Pengaturan invitation berhasil diperbarui.",
@@ -551,6 +562,7 @@ export async function addGuestAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 
   return {
     success: `Tamu berhasil ditambahkan. Personal link siap di /${invitation.coupleSlug}/${guestSlug}.`,
@@ -608,6 +620,7 @@ export async function updateGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 }
 
 export async function deleteGuestAction(formData: FormData) {
@@ -630,6 +643,7 @@ export async function deleteGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
+  revalidateDashboardCaches();
 }
 
 export async function logManualSendAction(formData: FormData) {
@@ -679,4 +693,5 @@ export async function logManualSendAction(formData: FormData) {
 
   revalidatePath("/dashboard/send");
   revalidatePath("/admin/send-logs");
+  revalidateDashboardCaches();
 }

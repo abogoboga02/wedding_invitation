@@ -1,10 +1,20 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 
-import { SetupInvitationForm } from "./_components/SetupInvitationForm";
+const SetupInvitationForm = dynamic(
+  () => import("./_components/SetupInvitationForm").then((mod) => mod.SetupInvitationForm),
+  {
+    loading: () => (
+      <div className="rounded-[1.75rem] border border-[var(--color-border)] bg-white px-5 py-5 text-sm text-[var(--color-text-secondary)]">
+        Memuat editor setup undangan...
+      </div>
+    ),
+  },
+);
 
 export default async function DashboardSetupPage() {
   const user = await requireClientUser();
