@@ -7,7 +7,6 @@ import { createUniqueGuestSlug } from "@/features/guest/guest.service";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
 import {
   buildTemplateConfigFromSetupForm,
-  normalizeTemplateConfig,
   updateTemplateConfigMusicSelection,
 } from "@/features/invitation/form/config";
 import {
@@ -19,10 +18,7 @@ import {
   getOrCreateDashboardInvitation,
   validateInvitationPublishability,
 } from "@/features/invitation/invitation.service";
-import {
-  getInvitationTemplateSlug,
-  isInvitationTemplate,
-} from "@/features/invitation/templates/template-slugs";
+import { getInvitationTemplateSlug } from "@/features/invitation/templates/template-slugs";
 import { invitationSettingsSchema } from "@/features/settings/settings.schema";
 import { requireClientUser } from "@/lib/auth/guards";
 import { getMusicPresetById } from "@/lib/constants/music-playlist";
@@ -53,59 +49,13 @@ function uniqueStoragePaths(paths: Array<string | null | undefined>) {
 
 export async function saveTemplateSelectionAction(
   _prevState: DashboardActionState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<DashboardActionState> {
-  const user = await getAuthenticatedUser();
-  const supabase = await createServerSupabaseClient();
-  const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
-  const template = String(formData.get("template") ?? "").trim();
-
-  if (!template) {
-    return { error: "Pilih satu template terlebih dahulu." };
-  }
-
-  if (!isInvitationTemplate(template)) {
-    return {
-      error: "Template yang dipilih tidak dikenali. Silakan pilih ulang dari daftar template.",
-    };
-  }
-
-  const nextTemplateConfig = normalizeTemplateConfig(template, invitation.templateConfig);
-  const generatedCopy = buildGeneratedInvitationCopy({
-    templateSlug: getInvitationTemplateSlug(template),
-    partnerOneName: invitation.partnerOneName,
-    partnerTwoName: invitation.partnerTwoName,
-    config: nextTemplateConfig,
-  });
-
-  const { error } = await supabase
-    .from("invitations")
-    .update({
-      template,
-      template_config: nextTemplateConfig,
-      headline: generatedCopy.legacy.headline,
-      subheadline: generatedCopy.legacy.subheadline,
-      story: generatedCopy.legacy.story,
-      closing_note: generatedCopy.legacy.closingNote,
-    })
-    .eq("id", invitation.id);
-
-  if (error) {
-    return {
-      error: "Template aktif belum berhasil diperbarui.",
-    };
-  }
-
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/templates");
-  revalidatePath("/dashboard/setup");
-  revalidatePath("/dashboard/preview");
+  await getAuthenticatedUser();
 
   return {
-    success:
-      invitation.status === "PUBLISHED"
-        ? "Template aktif berhasil diperbarui dan langsung dipakai pada link publik."
-        : "Template aktif berhasil diperbarui.",
+    error:
+      "Template invitation dikunci oleh admin. Hubungi admin bila perlu mengganti template akun Anda.",
   };
 }
 
