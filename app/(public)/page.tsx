@@ -10,6 +10,7 @@ import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
 import { SectionIntro } from "./_components/SectionIntro";
 import { AtelierAmoraLogo } from "./_components/AtelierAmoraLogo";
+import { TemplateShowcaseCard } from "./_components/TemplateShowcaseCard";
 
 const navigationLeft = [
   { href: "#template", label: "Template" },
@@ -83,11 +84,14 @@ const heroPetals = [
   { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
 ];
 
+const LANDING_TEMPLATE_LIMIT = 8;
+
 export default async function MarketingPage() {
   const supabase = await createSupabaseClient();
   const {
     data: { user: supabaseUser },
   } = await supabase.auth.getUser();
+  const landingTemplates = TEMPLATE_OPTIONS.slice(0, LANDING_TEMPLATE_LIMIT);
 
   return (
     <main className="editorial-shell flex-1">
@@ -188,7 +192,7 @@ export default async function MarketingPage() {
                   href="#template"
                   className="button-secondary inline-flex rounded-full px-6 py-4 text-sm font-semibold"
                 >
-                  Lihat Tiga Template
+                  Lihat Showcase Template
                 </Link>
               </div>
 
@@ -308,80 +312,52 @@ export default async function MarketingPage() {
         <ScrollReveal>
           <SectionIntro
             eyebrow="Template Showcase"
-            title="Tiga gaya visual yang siap dijual sejak landing page pertama."
+            title="Template unggulan yang siap dipamerkan di landing page."
             description="Setiap template dirancang untuk tetap terasa premium di layar ponsel, sambil memakai data undangan yang sama agar pasangan bebas ganti suasana kapan saja."
             align="center"
           />
         </ScrollReveal>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-[1.18fr_0.82fr_0.82fr]">
-          {TEMPLATE_OPTIONS.map((template, index) => (
-            <ScrollReveal
-              key={template.id}
-              className={`surface-card overflow-hidden rounded-[2.3rem] p-5 sm:p-6 ${
-                index === 0 ? "lg:row-span-2" : ""
-              }`}
-              delay={index * 80}
-            >
-              <div
-                className={`rounded-[1.9rem] p-6 ${
-                  template.id === "ELEGANT_LUXURY"
-                    ? "bg-[linear-gradient(160deg,#1b131c,#2f1e2e_55%,#6b3f63)] text-[#f2e6d8]"
-                    : template.id === "KOREAN_SOFT"
-                      ? "bg-[linear-gradient(160deg,#f8f5f1,#e7e1d8_55%,#cfadc0)] text-[#5d4453]"
-                      : "bg-[linear-gradient(160deg,#ffffff,#f3ede7_58%,#d3af8c)] text-[#2a2425]"
-                }`}
-              >
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.28em] opacity-75">
-                  <span>{template.label}</span>
-                  <span>{index === 0 ? "Featured" : "Editorial"}</span>
-                </div>
-                <div className={`${index === 0 ? "pb-20 pt-[4.5rem] sm:pt-24" : "pb-12 pt-14"} text-center`}>
-                  <p className="font-serif-display text-4xl sm:text-5xl">A & R</p>
-                  <p className="mt-3 text-sm opacity-80">Untuk: Tamu Tercinta</p>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <p className="text-sm uppercase tracking-[0.24em] text-[var(--color-secondary)]">
-                  {template.tagline}
-                </p>
-                <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
-                  {template.label}
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
-                  {template.description}
-                </p>
-              </div>
-            </ScrollReveal>
+        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {landingTemplates.map((template, index) => (
+            <TemplateShowcaseCard key={template.id} template={template} index={index} />
           ))}
-
-          <ScrollReveal
-            className="rounded-[2.3rem] border border-dashed border-[var(--color-border)] bg-white/40 p-6 lg:col-span-2"
-            delay={220}
-          >
-            <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <div className="max-w-xl">
-                <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
-                  Template Engine
-                </p>
-                <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
-                  Satu data, banyak nuansa visual.
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
-                  Struktur konten disimpan sekali, lalu diterjemahkan ke tampilan yang berbeda
-                  tanpa memaksa pasangan mengulang input.
-                </p>
-              </div>
-              <Link
-                href="/register"
-                className="button-secondary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
-              >
-                Coba di Dashboard
-              </Link>
-            </div>
-          </ScrollReveal>
         </div>
+
+        <ScrollReveal className="mt-8 flex justify-center" delay={220}>
+          <Link
+            href="/templates"
+            className="button-secondary inline-flex rounded-full px-6 py-3 text-sm font-semibold"
+          >
+            Lihat Semua Template
+          </Link>
+        </ScrollReveal>
+
+        <ScrollReveal
+          className="mt-6 rounded-[2.3rem] border border-dashed border-[var(--color-border)] bg-white/40 p-6"
+          delay={260}
+        >
+          <div className="flex h-full flex-col justify-between gap-6 sm:flex-row sm:items-end">
+            <div className="max-w-xl">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-secondary)]">
+                Template Engine
+              </p>
+              <h3 className="mt-3 font-serif-display text-3xl text-[var(--color-text-primary)]">
+                Satu data, banyak nuansa visual.
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-[var(--color-text-secondary)]">
+                Struktur konten disimpan sekali, lalu diterjemahkan ke tampilan yang berbeda
+                tanpa memaksa pasangan mengulang input.
+              </p>
+            </div>
+            <Link
+              href="/register"
+              className="button-secondary inline-flex rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              Coba di Dashboard
+            </Link>
+          </div>
+        </ScrollReveal>
       </section>
 
       <section id="why-us" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
