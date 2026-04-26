@@ -137,7 +137,7 @@ export default async function MarketingPage() {
           />
         </ScrollReveal>
 
-        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
           {landingTemplates.map((template, index) => (
             <TemplateShowcaseCard key={template.id} template={template} index={index} />
           ))}
