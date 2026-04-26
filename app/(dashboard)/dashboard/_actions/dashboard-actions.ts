@@ -49,8 +49,8 @@ function uniqueStoragePaths(paths: Array<string | null | undefined>) {
 }
 
 function revalidateDashboardCaches() {
-  revalidateTag(dashboardCacheTags.invitationSummary);
-  revalidateTag(dashboardCacheTags.analyticsSummary);
+  revalidateTag(dashboardCacheTags.invitationSummary, "max");
+  revalidateTag(dashboardCacheTags.analyticsSummary, "max");
 }
 
 export async function saveTemplateSelectionAction(

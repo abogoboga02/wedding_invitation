@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { PRICING_PLANS } from "@/lib/constants/pricing";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import { MobileMenu } from "./_components/MobileMenu";
 import { ScrollReveal } from "./_components/ScrollReveal";
@@ -25,19 +26,10 @@ const footerLinks = [
   { href: "/login", label: "Masuk" },
 ];
 
-const heroPetals = [
-  { left: "8%", delay: "0s", duration: "15s", size: "14px", drift: "24px", sway: "3.5s" },
-  { left: "24%", delay: "2s", duration: "13s", size: "16px", drift: "-18px", sway: "4.2s" },
-  { left: "41%", delay: "0.8s", duration: "14.2s", size: "15px", drift: "-14px", sway: "3.7s" },
-  { left: "58%", delay: "1.5s", duration: "14.5s", size: "12px", drift: "22px", sway: "3.2s" },
-  { left: "78%", delay: "4s", duration: "16s", size: "18px", drift: "-22px", sway: "4.8s" },
-  { left: "91%", delay: "3s", duration: "12.8s", size: "13px", drift: "16px", sway: "3.8s" },
-];
-
 const LANDING_TEMPLATE_LIMIT = 8;
 
 export default async function MarketingPage() {
-  const supabase = await createSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user: supabaseUser },
   } = await supabase.auth.getUser();
@@ -82,49 +74,49 @@ export default async function MarketingPage() {
                 Mulai Gratis
               </Link>
             </div>
-          </header>
-
-          <section className="pb-8 pt-14 sm:pt-[4.5rem] lg:pt-24">
-            <ScrollReveal className="mx-auto max-w-5xl text-center">
-              <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-[rgba(200,125,135,0.16)] bg-white/70 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-[var(--color-secondary)] shadow-[0_10px_28px_rgba(141,85,96,0.08)]">
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
-                Tool Undangan Digital Personal
-              </div>
-              <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
-                Supabase session: {supabaseUser ? `aktif sebagai ${supabaseUser.email}` : "belum login"}
-              </p>
-              <h1 className="mt-7 font-serif-display text-balance text-[3.5rem] leading-[0.88] text-[var(--color-text-primary)] sm:text-[4.9rem] lg:text-[6.4rem]">
-                Undangan yang terasa lebih intim, lebih premium, dan lebih hidup sejak link pertama dibuka.
-              </h1>
-              <p className="mx-auto mt-7 max-w-3xl text-base leading-8 text-[var(--color-text-secondary)] sm:text-lg">
-                Rancang undangan digital yang ringan dibuka di ponsel, indah dilihat, dan
-                personal lewat link tamu unik seperti <code>/alya-dan-raka/bu-rina</code>.
-                Semua terasa rapi dari draft, preview, sampai RSVP masuk kembali ke dashboard.
-              </p>
-
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link
-                  href="/register"
-                  className="button-primary button-primary-emphasis inline-flex min-w-[15rem] justify-center rounded-full px-7 py-4 text-sm font-semibold sm:text-base"
-                >
-                  Buat Undangan Pertama
-                </Link>
-                <Link
-                  href="#template"
-                  className="button-secondary inline-flex rounded-full px-6 py-4 text-sm font-semibold"
-                >
-                  Lihat Showcase Template
-                </Link>
-              </div>
-
-              <p className="mt-4 text-xs uppercase tracking-[0.24em] text-[var(--color-secondary)]/80 sm:text-sm">
-                Mulai gratis, simpan draft, lalu publish saat semuanya siap.
-              </p>
-            </ScrollReveal>
-
-            <div className="md:hidden" />
           </div>
         </header>
+
+        <section className="pb-8 pt-14 sm:pt-[4.5rem] lg:pt-24">
+          <ScrollReveal className="mx-auto max-w-5xl text-center">
+            <div className="mx-auto flex max-w-max items-center gap-3 rounded-full border border-[rgba(200,125,135,0.16)] bg-white/70 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-[var(--color-secondary)] shadow-[0_10px_28px_rgba(141,85,96,0.08)]">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-primary-strong)]" />
+              Tool Undangan Digital Personal
+            </div>
+            <p className="mt-4 text-xs text-[var(--color-text-secondary)]">
+              Supabase session: {supabaseUser ? `aktif sebagai ${supabaseUser.email}` : "belum login"}
+            </p>
+            <h1 className="mt-7 font-serif-display text-balance text-[3.5rem] leading-[0.88] text-[var(--color-text-primary)] sm:text-[4.9rem] lg:text-[6.4rem]">
+              Undangan yang terasa lebih intim, lebih premium, dan lebih hidup sejak link pertama dibuka.
+            </h1>
+            <p className="mx-auto mt-7 max-w-3xl text-base leading-8 text-[var(--color-text-secondary)] sm:text-lg">
+              Rancang undangan digital yang ringan dibuka di ponsel, indah dilihat, dan
+              personal lewat link tamu unik seperti <code>/alya-dan-raka/bu-rina</code>.
+              Semua terasa rapi dari draft, preview, sampai RSVP masuk kembali ke dashboard.
+            </p>
+
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/register"
+                className="button-primary button-primary-emphasis inline-flex min-w-[15rem] justify-center rounded-full px-7 py-4 text-sm font-semibold sm:text-base"
+              >
+                Buat Undangan Pertama
+              </Link>
+              <Link
+                href="#template"
+                className="button-secondary inline-flex rounded-full px-6 py-4 text-sm font-semibold"
+              >
+                Lihat Showcase Template
+              </Link>
+            </div>
+
+            <p className="mt-4 text-xs uppercase tracking-[0.24em] text-[var(--color-secondary)]/80 sm:text-sm">
+              Mulai gratis, simpan draft, lalu publish saat semuanya siap.
+            </p>
+          </ScrollReveal>
+
+          <div className="md:hidden" />
+        </section>
       </div>
 
       <section id="template" className="section-shell section-spacing mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
