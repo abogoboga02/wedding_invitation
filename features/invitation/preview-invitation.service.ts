@@ -3,7 +3,7 @@ import { getMusicPresetById } from "@/lib/constants/music-playlist";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 
 import { getPublicInvitationPath } from "./public-invitation.service";
-import type { DashboardInvitationSummary } from "./invitation.service";
+import type { DashboardInvitationPreview } from "./invitation.service";
 import { mapInvitationToRenderModel } from "./invitation.service";
 import type { InvitationRenderModel } from "./invitation.types";
 
@@ -61,26 +61,17 @@ function normalizeDraftRenderModel(renderModel: InvitationRenderModel): Invitati
 }
 
 export function buildDraftInvitationPreview(
-  invitation: DashboardInvitationSummary,
+  invitation: DashboardInvitationPreview,
 ): DraftInvitationPreview {
-  const previewGuest = invitation.guests[0] ?? null;
   const renderModel = mapInvitationToRenderModel(
     invitation,
-    previewGuest,
-    invitation.guests
-      .filter((guest) => guest.wish)
-      .slice(0, 8)
-      .map((guest) => ({
-        id: guest.wish!.id,
-        guestName: guest.name,
-        message: guest.wish!.message,
-        createdAt: guest.wish!.createdAt.toISOString(),
-      })),
+    invitation.previewGuest,
+    invitation.approvedWishes,
   );
 
   const normalizedRenderModel = normalizeDraftRenderModel({
     ...renderModel,
-    guestName: previewGuest?.name ?? "Tamu Preview",
+    guestName: invitation.previewGuest?.name ?? "Tamu Preview",
   });
 
   const placeholderNotes: string[] = [];
@@ -90,7 +81,7 @@ export function buildDraftInvitationPreview(
       ? getMusicPresetById(renderModel.templateConfig.music.presetId)
       : null;
 
-  if (!previewGuest) {
+  if (!invitation.previewGuest) {
     placeholderNotes.push(
       "Preview memakai sample guest karena daftar tamu belum tersedia. Setelah guest ditambahkan, preview akan memakai guest pertama secara otomatis.",
     );
@@ -142,7 +133,10 @@ export function buildDraftInvitationPreview(
     invitation.template.replaceAll("_", " ");
   const previewPath = getPublicInvitationPath(
     normalizedRenderModel.coupleSlug,
-    normalizedRenderModel.guestSlug ?? "tamu-preview",
+    {
+      guestSlug: normalizedRenderModel.guestSlug ?? "tamu-preview",
+      guestName: normalizedRenderModel.guestName,
+    },
   );
 
   return {
@@ -150,7 +144,7 @@ export function buildDraftInvitationPreview(
     templateLabel,
     previewGuestName: normalizedRenderModel.guestName,
     previewPath,
-    isUsingSampleGuest: !previewGuest,
+    isUsingSampleGuest: !invitation.previewGuest,
     placeholderNotes,
     templateConfigSummary: getTemplateConfigSummaryEntries(
       invitation.template,

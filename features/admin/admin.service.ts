@@ -1,15 +1,61 @@
+import { validateInvitationPublishability } from "@/features/invitation/invitation.service";
+import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { TableRow } from "@/lib/supabase/database.types";
 import { unwrapList } from "@/lib/supabase/helpers";
 
 type AdminClient = ReturnType<typeof getSupabaseAdminClient>;
+type InvitationRow = TableRow<"invitations">;
+type EventSlotRow = TableRow<"event_slots">;
+type GuestRow = TableRow<"guests">;
+type GalleryImageRow = TableRow<"gallery_images">;
+type RsvpRow = TableRow<"rsvps">;
+type TemplateRow = TableRow<"templates">;
+type PaymentOrderRow = TableRow<"payment_orders">;
+type AdminOverviewPaymentRow = Pick<
+  PaymentOrderRow,
+  "id" | "user_id" | "status" | "amount_in_idr" | "template_name" | "selected_package" | "created_at"
+>;
+
+type AdminOverviewInvitationRow = Pick<
+  InvitationRow,
+  | "id"
+  | "owner_id"
+  | "couple_slug"
+  | "partner_one_name"
+  | "partner_two_name"
+  | "status"
+  | "template"
+  | "template_name"
+  | "cover_image_url"
+  | "published_at"
+  | "created_at"
+  | "updated_at"
+> & {
+  event_slots?: Array<
+    Pick<EventSlotRow, "id" | "starts_at" | "venue_name" | "address" | "latitude" | "longitude">
+  > | null;
+  guests?:
+    | Array<
+        Pick<GuestRow, "id" | "guest_slug"> & {
+          rsvps?: Pick<RsvpRow, "id" | "status" | "attendees"> | Array<Pick<RsvpRow, "id" | "status" | "attendees">> | null;
+        }
+      >
+    | null;
+  gallery_images?: Array<Pick<GalleryImageRow, "id">> | null;
+};
 
 export type AdminOverviewData = {
   users: number;
+  clients: number;
   admins: number;
+  activeClients: number;
   invitations: number;
   published: number;
+  drafts: number;
   guests: number;
   rsvps: number;
+  needsSetup: number;
   recentUsers: Array<{
     id: string;
     name: string | null;
@@ -17,15 +63,61 @@ export type AdminOverviewData = {
     role: "ADMIN" | "CLIENT";
     createdAt: Date;
   }>;
-  recentInvitations: Array<{
+  latestOrders: Array<{
+    id: string;
+    status: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+    amountInIdr: number;
+    templateName: string | null;
+    selectedPackage: "STARTER" | "SIGNATURE" | "STUDIO" | null;
+    createdAt: Date;
+    userName: string | null;
+    userEmail: string;
+  }>;
+  actionRequiredClients: Array<{
+    id: string;
+    userName: string | null;
+    userEmail: string;
+    coupleSlug: string;
+    status: "DRAFT" | "PUBLISHED";
+    issues: string[];
+  }>;
+  recentPublishes: Array<{
     id: string;
     coupleSlug: string;
     partnerOneName: string;
     partnerTwoName: string;
+    publishedAt: Date;
     status: "DRAFT" | "PUBLISHED";
-    updatedAt: Date;
     ownerEmail: string;
   }>;
+  templateSummary: {
+    total: number;
+    active: number;
+    draft: number;
+    inactive: number;
+    premium: number;
+    regular: number;
+    mostUsed: {
+      templateId: string;
+      templateName: string;
+      usageCount: number;
+    } | null;
+  };
+  revenueSummary: {
+    paidRevenue: number;
+    pendingRevenue: number;
+    totalOrders: number;
+    paidOrders: number;
+    pendingOrders: number;
+  };
+  globalRsvpStats: {
+    totalGuests: number;
+    totalRsvps: number;
+    responseRate: number;
+    attending: number;
+    maybe: number;
+    declined: number;
+  };
 };
 
 export type AdminUserRow = {
@@ -139,6 +231,56 @@ export type AdminSettingsSnapshot = {
   wishEnabledCount: number;
 };
 
+function firstEmbeddedRow<T>(value?: T | T[] | null) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function embeddedRows<T>(value?: T | T[] | null) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  return value ? [value] : [];
+}
+
+function resolvePaymentIssueLabel(status: PaymentOrderRow["status"] | null | undefined) {
+  if (status === "PENDING") {
+    return "Pembayaran masih pending";
+  }
+
+  if (status === "FAILED") {
+    return "Pembayaran gagal";
+  }
+
+  if (status === "REFUNDED") {
+    return "Pembayaran sudah direfund";
+  }
+
+  return null;
+}
+
+function getFallbackTemplateRows(): TemplateRow[] {
+  const now = new Date().toISOString();
+
+  return TEMPLATE_OPTIONS.map((template) => ({
+    id: template.id,
+    template_id: template.id,
+    template_name: template.label,
+    template_slug: template.slug,
+    template_category: template.category,
+    template_preview: template.previewImage,
+    template_price: template.priceInIdr,
+    is_premium: template.isPremium,
+    is_active: true,
+    created_at: now,
+    updated_at: now,
+  }));
+}
+
 async function getUserMap(client: AdminClient) {
   const users = await unwrapList(
     await client.from("users").select("id, name, email, role, created_at"),
@@ -161,24 +303,30 @@ async function getUserMap(client: AdminClient) {
 
 export async function getInvitationSendLogs(invitationId: string, limit = 8) {
   const client = getSupabaseAdminClient();
-  const [logRows, guestRows] = await Promise.all([
-    unwrapList(
-      await client
-        .from("send_logs")
-        .select("id, channel, status, recipient, guest_id, created_at")
-        .eq("invitation_id", invitationId)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-      "Gagal mengambil riwayat distribusi invitation.",
+  const logRows = await unwrapList(
+    await client
+      .from("send_logs")
+      .select("id, channel, status, recipient, guest_id, created_at")
+      .eq("invitation_id", invitationId)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "Gagal mengambil riwayat distribusi invitation.",
+  );
+
+  const guestIds = [
+    ...new Set(
+      logRows
+        .map((log) => log.guest_id)
+        .filter((guestId): guestId is string => Boolean(guestId)),
     ),
-    unwrapList(
-      await client
-        .from("guests")
-        .select("id, name")
-        .eq("invitation_id", invitationId),
-      "Gagal mengambil data tamu untuk send log.",
-    ),
-  ]);
+  ];
+  const guestRows =
+    guestIds.length > 0
+      ? await unwrapList(
+          await client.from("guests").select("id, name").in("id", guestIds),
+          "Gagal mengambil data tamu untuk send log.",
+        )
+      : [];
 
   const guestMap = new Map(guestRows.map((guest) => [guest.id, guest.name]));
 
@@ -195,45 +343,216 @@ export async function getInvitationSendLogs(invitationId: string, limit = 8) {
 export async function getAdminOverviewData(): Promise<AdminOverviewData> {
   const client = getSupabaseAdminClient();
   const userMap = await getUserMap(client);
-  const [userCount, adminCount, invitationCount, publishedCount, guestCount, rsvpCount, invitationRows] =
-    await Promise.all([
-      client.from("users").select("*", { count: "exact", head: true }),
-      client.from("users").select("*", { count: "exact", head: true }).eq("role", "ADMIN"),
-      client.from("invitations").select("*", { count: "exact", head: true }),
-      client.from("invitations").select("*", { count: "exact", head: true }).eq("status", "PUBLISHED"),
-      client.from("guests").select("*", { count: "exact", head: true }),
-      client.from("rsvps").select("*", { count: "exact", head: true }),
-      unwrapList(
-        await client
-          .from("invitations")
-          .select("id, owner_id, couple_slug, partner_one_name, partner_two_name, status, updated_at")
-          .order("updated_at", { ascending: false })
-          .limit(5),
-        "Gagal mengambil invitation terbaru admin.",
-      ),
-    ]);
+  const [invitationRows, templateRowsRaw, paymentRows] = await Promise.all([
+    unwrapList<AdminOverviewInvitationRow>(
+      await client
+        .from("invitations")
+        .select(
+          "id, owner_id, couple_slug, partner_one_name, partner_two_name, status, template, template_name, cover_image_url, published_at, created_at, updated_at, event_slots (id, starts_at, venue_name, address, latitude, longitude), gallery_images (id), guests (id, guest_slug, rsvps (id, status, attendees))",
+        )
+        .order("updated_at", { ascending: false }),
+      "Gagal mengambil ringkasan invitation admin.",
+    ),
+    unwrapList(
+      await client
+        .from("templates")
+        .select(
+          "id, template_id, template_name, template_slug, template_category, template_preview, template_price, is_premium, is_active, created_at, updated_at",
+        )
+        .order("template_name", { ascending: true }),
+      "Gagal mengambil katalog template admin.",
+    ),
+    unwrapList<AdminOverviewPaymentRow>(
+      await client
+        .from("payment_orders")
+        .select(
+          "id, user_id, status, amount_in_idr, template_name, selected_package, created_at",
+        )
+        .order("created_at", { ascending: false }),
+      "Gagal mengambil data order pembayaran admin.",
+    ),
+  ]);
 
+  const templateRows = templateRowsRaw.length > 0 ? templateRowsRaw : getFallbackTemplateRows();
+  const clients = [...userMap.values()].filter((user) => user.role === "CLIENT");
   const recentUsers = [...userMap.values()]
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
     .slice(0, 5);
+  const activeClients = new Set(invitationRows.map((invitation) => invitation.owner_id)).size;
+  const latestPaymentByUserId = new Map<string, AdminOverviewPaymentRow>();
+  const templateUsageMap = new Map<string, number>();
 
-  return {
-    users: userCount.count ?? 0,
-    admins: adminCount.count ?? 0,
-    invitations: invitationCount.count ?? 0,
-    published: publishedCount.count ?? 0,
-    guests: guestCount.count ?? 0,
-    rsvps: rsvpCount.count ?? 0,
-    recentUsers,
-    recentInvitations: invitationRows.map((invitation) => ({
-      id: invitation.id,
-      coupleSlug: invitation.couple_slug,
+  paymentRows.forEach((payment) => {
+    if (!latestPaymentByUserId.has(payment.user_id)) {
+      latestPaymentByUserId.set(payment.user_id, payment);
+    }
+  });
+
+  const invitationSummaries = invitationRows.map((invitation) => {
+    const guests = embeddedRows(invitation.guests);
+    const eventSlots = embeddedRows(invitation.event_slots).map((eventSlot) => ({
+      id: eventSlot.id,
+      startsAt: eventSlot.starts_at,
+      venueName: eventSlot.venue_name,
+      address: eventSlot.address,
+      latitude: eventSlot.latitude,
+      longitude: eventSlot.longitude,
+    }));
+    const publishValidation = validateInvitationPublishability({
       partnerOneName: invitation.partner_one_name,
       partnerTwoName: invitation.partner_two_name,
-      status: invitation.status,
-      updatedAt: new Date(invitation.updated_at),
-      ownerEmail: userMap.get(invitation.owner_id)?.email ?? "-",
+      coupleSlug: invitation.couple_slug,
+      template: invitation.template,
+      eventSlots,
+      guests: guests.map((guest) => ({ id: guest.id })),
+    });
+    const galleryCount = embeddedRows(invitation.gallery_images).length;
+
+    templateUsageMap.set(
+      invitation.template,
+      (templateUsageMap.get(invitation.template) ?? 0) + 1,
+    );
+
+    const checklistState = new Set(
+      publishValidation.checklist.filter((item) => !item.isComplete).map((item) => item.id),
+    );
+    const issues: string[] = [];
+
+    if (
+      checklistState.has("couple-name") ||
+      checklistState.has("event-date") ||
+      checklistState.has("primary-location")
+    ) {
+      issues.push("Detail undangan belum lengkap");
+    }
+
+    if (checklistState.has("guest-list")) {
+      issues.push("Belum tambah tamu");
+    }
+
+    if (checklistState.has("template")) {
+      issues.push("Belum pilih template");
+    }
+
+    if (!invitation.cover_image_url && galleryCount === 0) {
+      issues.push("Belum upload foto/media");
+    }
+
+    const paymentIssue = resolvePaymentIssueLabel(
+      latestPaymentByUserId.get(invitation.owner_id)?.status,
+    );
+    if (paymentIssue) {
+      issues.push(paymentIssue);
+    }
+
+    return {
+      invitation,
+      publishValidation,
+      guestCount: guests.length,
+      rsvpRows: guests
+        .map((guest) => firstEmbeddedRow(guest.rsvps))
+        .filter(Boolean) as Array<Pick<RsvpRow, "id" | "status" | "attendees">>,
+      issues,
+      galleryCount,
+      hasSetupIssue:
+        !publishValidation.isValid || (!invitation.cover_image_url && galleryCount === 0),
+    };
+  });
+
+  const totalGuests = invitationSummaries.reduce((sum, item) => sum + item.guestCount, 0);
+  const allRsvps = invitationSummaries.flatMap((item) => item.rsvpRows);
+  const totalRsvps = allRsvps.length;
+  const attending = allRsvps.filter((rsvp) => rsvp.status === "ATTENDING").length;
+  const maybe = allRsvps.filter((rsvp) => rsvp.status === "MAYBE").length;
+  const declined = allRsvps.filter((rsvp) => rsvp.status === "DECLINED").length;
+  const mostUsedTemplateEntry = [...templateUsageMap.entries()].sort((left, right) => right[1] - left[1])[0];
+  const templateNameById = new Map(templateRows.map((template) => [template.template_id, template.template_name]));
+  const actionRequiredClients = invitationSummaries
+    .filter((item) => item.issues.length > 0)
+    .slice(0, 6)
+    .map((item) => ({
+      id: item.invitation.id,
+      userName: userMap.get(item.invitation.owner_id)?.name ?? null,
+      userEmail: userMap.get(item.invitation.owner_id)?.email ?? "-",
+      coupleSlug: item.invitation.couple_slug,
+      status: item.invitation.status,
+      issues: item.issues,
+    }));
+
+  return {
+    users: userMap.size,
+    clients: clients.length,
+    admins: [...userMap.values()].filter((user) => user.role === "ADMIN").length,
+    activeClients,
+    invitations: invitationRows.length,
+    published: invitationRows.filter((invitation) => invitation.status === "PUBLISHED").length,
+    drafts: invitationRows.filter((invitation) => invitation.status === "DRAFT").length,
+    guests: totalGuests,
+    rsvps: totalRsvps,
+    needsSetup: invitationSummaries.filter((item) => item.hasSetupIssue).length,
+    recentUsers,
+    latestOrders: paymentRows.slice(0, 6).map((payment) => ({
+      id: payment.id,
+      status: payment.status,
+      amountInIdr: payment.amount_in_idr,
+      templateName: payment.template_name,
+      selectedPackage: payment.selected_package,
+      createdAt: new Date(payment.created_at),
+      userName: userMap.get(payment.user_id)?.name ?? null,
+      userEmail: userMap.get(payment.user_id)?.email ?? "-",
     })),
+    actionRequiredClients,
+    recentPublishes: invitationRows
+      .filter((invitation) => invitation.published_at)
+      .sort(
+        (left, right) =>
+          new Date(right.published_at ?? 0).getTime() - new Date(left.published_at ?? 0).getTime(),
+      )
+      .slice(0, 6)
+      .map((invitation) => ({
+        id: invitation.id,
+        coupleSlug: invitation.couple_slug,
+        partnerOneName: invitation.partner_one_name,
+        partnerTwoName: invitation.partner_two_name,
+        publishedAt: new Date(invitation.published_at!),
+        status: invitation.status,
+        ownerEmail: userMap.get(invitation.owner_id)?.email ?? "-",
+      })),
+    templateSummary: {
+      total: templateRows.length,
+      active: templateRows.filter((template) => template.is_active).length,
+      draft: 0,
+      inactive: templateRows.filter((template) => !template.is_active).length,
+      premium: templateRows.filter((template) => template.is_premium).length,
+      regular: templateRows.filter((template) => !template.is_premium).length,
+      mostUsed: mostUsedTemplateEntry
+        ? {
+            templateId: mostUsedTemplateEntry[0],
+            templateName:
+              templateNameById.get(mostUsedTemplateEntry[0]) ?? mostUsedTemplateEntry[0],
+            usageCount: mostUsedTemplateEntry[1],
+          }
+        : null,
+    },
+    revenueSummary: {
+      paidRevenue: paymentRows
+        .filter((payment) => payment.status === "PAID")
+        .reduce((sum, payment) => sum + payment.amount_in_idr, 0),
+      pendingRevenue: paymentRows
+        .filter((payment) => payment.status === "PENDING")
+        .reduce((sum, payment) => sum + payment.amount_in_idr, 0),
+      totalOrders: paymentRows.length,
+      paidOrders: paymentRows.filter((payment) => payment.status === "PAID").length,
+      pendingOrders: paymentRows.filter((payment) => payment.status === "PENDING").length,
+    },
+    globalRsvpStats: {
+      totalGuests,
+      totalRsvps,
+      responseRate: totalGuests > 0 ? Math.round((totalRsvps / totalGuests) * 100) : 0,
+      attending,
+      maybe,
+      declined,
+    },
   };
 }
 

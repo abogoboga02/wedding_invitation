@@ -69,7 +69,19 @@ export async function loginAction(
     };
   }
 
-  redirect("/dashboard");
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const authenticatedUserId = claimsData?.claims?.sub;
+  const { data: profile } = authenticatedUserId
+    ? await supabase.from("users").select("role").eq("id", authenticatedUserId).maybeSingle()
+    : { data: null };
+  const nextPath =
+    profile?.role === "ADMIN" ||
+    claimsData?.claims?.app_metadata?.role === "ADMIN" ||
+    claimsData?.claims?.user_metadata?.role === "ADMIN"
+      ? "/admin"
+      : "/dashboard";
+
+  redirect(nextPath);
 }
 
 export async function registerAction(

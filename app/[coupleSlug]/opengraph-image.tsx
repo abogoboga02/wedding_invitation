@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-import { getPublicInvitationMetadataByRoute } from "@/features/invitation/public-invitation.service";
+import { getPublicInvitationMetadataBySlug } from "@/features/invitation/public-invitation.service";
 
 export const alt = "Undangan Digital";
 export const size = {
@@ -12,11 +12,11 @@ export const contentType = "image/png";
 
 export default async function InvitationOpenGraphImage(
   props: {
-    params: Promise<{ coupleSlug: string; guestSlug: string }>;
+    params: Promise<{ coupleSlug: string }>;
   },
 ) {
-  const { coupleSlug, guestSlug } = await props.params;
-  const invitation = await getPublicInvitationMetadataByRoute(coupleSlug, guestSlug);
+  const { coupleSlug } = await props.params;
+  const invitation = await getPublicInvitationMetadataBySlug(coupleSlug);
 
   const title = invitation
     ? `${invitation.partnerOneName} & ${invitation.partnerTwoName}`

@@ -1,6 +1,6 @@
 import { buildDraftInvitationPreview } from "@/features/invitation/preview-invitation.service";
 import {
-  getDashboardInvitationSummary,
+  getDashboardInvitationPreview,
   validateInvitationPublishability,
 } from "@/features/invitation/invitation.service";
 import { TemplateRenderer } from "@/features/invitation/templates/TemplateRenderer";
@@ -12,7 +12,7 @@ import { PreviewPublishActions } from "./_components/PreviewPublishActions";
 function PreviewRsvpPlaceholder() {
   return (
     <div className="space-y-3">
-      <p>Area RSVP akan muncul di sini untuk setiap tamu yang membuka link undangan personal.</p>
+      <p>Area RSVP akan muncul di sini untuk setiap tamu yang membuka link undangan.</p>
       <p>
         Saat undangan live, tamu dapat memilih kehadiran dan meninggalkan ucapan langsung dari
         section ini.
@@ -23,14 +23,17 @@ function PreviewRsvpPlaceholder() {
 
 export default async function DashboardPreviewPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const invitation = await getDashboardInvitationPreview(user.id);
 
   if (!invitation) {
     return null;
   }
 
   const draftPreview = buildDraftInvitationPreview(invitation);
-  const publishValidation = validateInvitationPublishability(invitation);
+  const publishValidation = validateInvitationPublishability({
+    ...invitation,
+    guestCount: invitation.guestCount,
+  });
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">

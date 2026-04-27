@@ -1,4 +1,4 @@
-import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { getDashboardInvitationSettingsView } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
@@ -8,7 +8,7 @@ import { InvitationSettingsForm } from "./_components/InvitationSettingsForm";
 
 export default async function DashboardSettingsPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const invitation = await getDashboardInvitationSettingsView(user.id);
 
   if (!invitation) {
     return null;

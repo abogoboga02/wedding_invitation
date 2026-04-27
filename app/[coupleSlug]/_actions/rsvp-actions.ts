@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-
+import { dashboardCacheTags } from "@/features/invitation/invitation.service";
+import { getPublicInvitationPath } from "@/features/invitation/public-invitation.service";
 import { rsvpSchema } from "@/features/rsvp/rsvp.schema";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type PublicActionState = {
   error?: string;
@@ -150,9 +151,14 @@ export async function submitRsvpAction(
     }
   }
 
-  revalidatePath(`/${parsedRsvp.data.coupleSlug}/${parsedRsvp.data.guestSlug}`);
+  revalidatePath(getPublicInvitationPath(parsedRsvp.data.coupleSlug));
   revalidatePath("/dashboard/rsvp");
   revalidatePath("/dashboard/analytics");
+  revalidateTag(dashboardCacheTags.rsvp, "max");
+  revalidateTag(dashboardCacheTags.analytics, "max");
+  revalidateTag(dashboardCacheTags.preview, "max");
+  revalidateTag(dashboardCacheTags.overview, "max");
+  revalidateTag(dashboardCacheTags.invitationSummary, "max");
 
   return {
     success: "Terima kasih, RSVP Anda sudah kami terima.",

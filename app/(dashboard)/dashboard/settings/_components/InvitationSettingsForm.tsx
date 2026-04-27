@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import type { DashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import type { DashboardInvitationSettingsView } from "@/features/invitation/invitation.service";
 import { SEND_CHANNEL_LABELS } from "@/lib/constants/pricing";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
@@ -14,7 +14,7 @@ import {
 const initialState: DashboardActionState = {};
 
 type InvitationSettingsFormProps = {
-  invitation: DashboardInvitationSummary;
+  invitation: DashboardInvitationSettingsView;
 };
 
 const localeOptions = ["id-ID", "en-US"];

@@ -26,14 +26,17 @@ export function GuestList({ coupleSlug, guests }: GuestListProps) {
       <div className="border-b border-stone-200 px-6 py-5">
         <h2 className="text-lg font-semibold text-stone-900">Daftar Tamu</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Tiap tamu punya guest slug unik dan personal link yang siap dibagikan.
+          Setiap tamu punya link undangan sendiri dengan sapaan yang bisa langsung dibagikan.
         </p>
       </div>
 
       <div className="divide-y divide-stone-100">
         {guests.length > 0 ? (
           guests.map((guest) => {
-            const publicPath = getPublicInvitationPath(coupleSlug, guest.guestSlug);
+            const publicPath = getPublicInvitationPath(coupleSlug, {
+              guestSlug: guest.guestSlug,
+              guestName: guest.name,
+            });
 
             return (
               <article key={guest.id} className="space-y-4 px-6 py-5">
@@ -104,7 +107,7 @@ export function GuestList({ coupleSlug, guests }: GuestListProps) {
           })
         ) : (
           <div className="px-6 py-10 text-sm leading-7 text-stone-600">
-            Belum ada tamu. Tambah manual atau import CSV agar personal link mulai terbentuk.
+            Belum ada tamu. Tambah manual atau import CSV agar link undangan mulai terbentuk.
           </div>
         )}
       </div>

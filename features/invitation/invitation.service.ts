@@ -1,4 +1,8 @@
-import type { PostgrestMaybeSingleResponse, SupabaseClient } from "@supabase/supabase-js";
+import type {
+  PostgrestMaybeSingleResponse,
+  PostgrestResponse,
+  SupabaseClient,
+} from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
@@ -24,6 +28,17 @@ type GuestRow = TableRow<"guests">;
 type RsvpRow = TableRow<"rsvps">;
 type WishRow = TableRow<"wishes">;
 
+type InvitationRelationsRow = InvitationRow & {
+  invitation_settings?: InvitationSettingRow | InvitationSettingRow[] | null;
+  event_slots?: EventSlotRow[] | null;
+  gallery_images?: GalleryImageRow[] | null;
+};
+
+type GuestWithResponsesRow = GuestRow & {
+  rsvps?: RsvpRow | RsvpRow[] | null;
+  wishes?: WishRow | WishRow[] | null;
+};
+
 type DashboardInvitationSummaryRow = InvitationRow & {
   invitation_settings?: InvitationSettingRow | InvitationSettingRow[] | null;
   event_slots?: EventSlotRow[] | null;
@@ -42,6 +57,8 @@ const INVITATION_BASE_SELECT = `
   id,
   owner_id,
   template,
+  template_name,
+  template_schema,
   status,
   couple_slug,
   partner_one_name,
@@ -137,7 +154,15 @@ const DASHBOARD_INVITATION_SUMMARY_SELECT = `
 `;
 
 const DASHBOARD_INVITATION_SUMMARY_CACHE_TAG = "dashboard-invitation-summary";
-const DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG = "dashboard-analytics-summary";
+const DASHBOARD_CORE_CACHE_TAG = "dashboard-core";
+const DASHBOARD_OVERVIEW_CACHE_TAG = "dashboard-overview";
+const DASHBOARD_MEDIA_CACHE_TAG = "dashboard-media";
+const DASHBOARD_GUESTS_CACHE_TAG = "dashboard-guests";
+const DASHBOARD_SEND_CACHE_TAG = "dashboard-send";
+const DASHBOARD_RSVP_CACHE_TAG = "dashboard-rsvp";
+const DASHBOARD_PREVIEW_CACHE_TAG = "dashboard-preview";
+const DASHBOARD_ANALYTICS_CACHE_TAG = "dashboard-analytics";
+const PUBLIC_INVITATION_CACHE_TAG = "public-invitation-shell";
 const INVITATION_SETTING_SELECT = `
   id,
   invitation_id,
@@ -176,6 +201,40 @@ const GALLERY_IMAGE_SELECT = `
   sort_order,
   created_at
 `;
+const GUEST_SELECT = `
+  id,
+  invitation_id,
+  name,
+  guest_slug,
+  phone,
+  email,
+  source,
+  created_at,
+  updated_at
+`;
+const GUEST_WITH_RESPONSES_SELECT = `
+  ${GUEST_SELECT},
+  rsvps (
+    id,
+    guest_id,
+    respondent_name,
+    status,
+    attendees,
+    note,
+    responded_at,
+    updated_at
+  ),
+  wishes (
+    id,
+    invitation_id,
+    guest_id,
+    message,
+    is_approved,
+    created_at,
+    updated_at
+  )
+`;
+const GUEST_WITH_REQUIRED_RSVP_SELECT = GUEST_WITH_RESPONSES_SELECT.replace("rsvps (", "rsvps!inner (");
 
 export type InvitationRecord = {
   id: string;
@@ -312,6 +371,55 @@ export type DashboardAnalyticsSummary = {
     declined: number;
     maybe: number;
   };
+};
+
+export type DashboardInvitationOverview = InvitationRecord & {
+  setting: InvitationSettingRecord | null;
+  eventSlots: EventSlotRecord[];
+  galleryImageCount: number;
+  guestCount: number;
+  rsvpCount: number;
+  attendingCount: number;
+  declinedCount: number;
+  sampleGuestSlug: string | null;
+};
+
+export type DashboardInvitationSettingsView = InvitationRecord & {
+  setting: InvitationSettingRecord | null;
+};
+
+export type DashboardInvitationMediaView = InvitationRecord & {
+  galleryImages: GalleryImageRecord[];
+};
+
+export type DashboardInvitationGuestsView = Pick<InvitationRecord, "coupleSlug"> & {
+  totalRsvpCount: number;
+  guests: GuestRecord[];
+};
+
+export type DashboardInvitationSendView = Pick<
+  InvitationRecord,
+  "id" | "coupleSlug" | "status"
+> & {
+  totalGuestCount: number;
+  guests: GuestRecord[];
+};
+
+export type DashboardInvitationRsvpView = Pick<InvitationRecord, "coupleSlug"> & {
+  guests: Array<DashboardInvitationGuest & { rsvp: RsvpRecord }>;
+};
+
+export type DashboardInvitationPreview = InvitationWithRelations & {
+  guestCount: number;
+  previewGuest: DashboardInvitationGuest | null;
+  approvedWishes: PublicWish[];
+};
+
+export type DashboardSendSummary = {
+  sentGuests: number;
+  pendingGuests: number;
+  totalSendLogs: number;
+  latestSentAt: Date | null;
 };
 
 export type InvitationPublishChecklistItem = {
@@ -453,6 +561,35 @@ function mapWishRow(row: WishRow): WishRecord {
   };
 }
 
+function mapInvitationRelationsRow(row: InvitationRelationsRow): InvitationWithRelations {
+  const invitation = mapInvitationRow(row);
+  const settingRow = firstEmbeddedRow(row.invitation_settings);
+  const eventSlots = embeddedRows(row.event_slots)
+    .map(mapEventSlotRow)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+  const galleryImages = embeddedRows(row.gallery_images)
+    .map(mapGalleryImageRow)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+
+  return {
+    ...invitation,
+    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
+    eventSlots,
+    galleryImages,
+  };
+}
+
+function mapGuestWithResponsesRow(row: GuestWithResponsesRow): DashboardInvitationGuest {
+  const rsvpRow = firstEmbeddedRow(row.rsvps);
+  const wishRow = firstEmbeddedRow(row.wishes);
+
+  return {
+    ...mapGuestRow(row),
+    rsvp: rsvpRow ? mapRsvpRow(rsvpRow) : null,
+    wish: wishRow ? mapWishRow(wishRow) : null,
+  };
+}
+
 function firstEmbeddedRow<T>(value?: T | T[] | null) {
   if (Array.isArray(value)) {
     return value[0] ?? null;
@@ -472,32 +609,13 @@ function embeddedRows<T>(value?: T | T[] | null) {
 function mapDashboardInvitationSummaryRow(
   row: DashboardInvitationSummaryRow,
 ): DashboardInvitationSummary {
-  const invitation = mapInvitationRow(row);
-  const settingRow = firstEmbeddedRow(row.invitation_settings);
-  const eventSlots = embeddedRows(row.event_slots)
-    .map(mapEventSlotRow)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
-  const galleryImages = embeddedRows(row.gallery_images)
-    .map(mapGalleryImageRow)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
+  const invitation = mapInvitationRelationsRow(row);
   const guests = embeddedRows(row.guests)
-    .map((guestRow) => {
-      const rsvpRow = firstEmbeddedRow(guestRow.rsvps);
-      const wishRow = firstEmbeddedRow(guestRow.wishes);
-
-      return {
-        ...mapGuestRow(guestRow),
-        rsvp: rsvpRow ? mapRsvpRow(rsvpRow) : null,
-        wish: wishRow ? mapWishRow(wishRow) : null,
-      };
-    })
+    .map(mapGuestWithResponsesRow)
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
 
   return {
     ...invitation,
-    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
-    eventSlots,
-    galleryImages,
     guests,
   };
 }
@@ -531,38 +649,162 @@ async function getInvitationBaseByOwnerId(userId: string, client: SupabaseDbClie
   return invitation ? mapInvitationRow(invitation) : null;
 }
 
+async function getInvitationSettingByInvitationId(invitationId: string, client: SupabaseDbClient) {
+  const settingRow = await unwrapMaybeSingle<InvitationSettingRow>(
+    await client
+      .from("invitation_settings")
+      .select(INVITATION_SETTING_SELECT)
+      .eq("invitation_id", invitationId)
+      .maybeSingle(),
+    "Gagal mengambil pengaturan invitation.",
+  );
+
+  return settingRow ? mapInvitationSettingRow(settingRow) : null;
+}
+
+async function getInvitationEventSlotsByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+) {
+  const eventSlotRows = await unwrapList<EventSlotRow>(
+    await client
+      .from("event_slots")
+      .select(EVENT_SLOT_SELECT)
+      .eq("invitation_id", invitationId)
+      .order("sort_order", { ascending: true }),
+    "Gagal mengambil jadwal acara invitation.",
+  );
+
+  return eventSlotRows.map(mapEventSlotRow);
+}
+
+async function getInvitationGalleryImagesByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+) {
+  const galleryRows = await unwrapList<GalleryImageRow>(
+    await client
+      .from("gallery_images")
+      .select(GALLERY_IMAGE_SELECT)
+      .eq("invitation_id", invitationId)
+      .order("sort_order", { ascending: true }),
+    "Gagal mengambil galeri invitation.",
+  );
+
+  return galleryRows.map(mapGalleryImageRow);
+}
+
+async function getInvitationGuestsByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+) {
+  const guestRows = await unwrapList<GuestRow>(
+    await client
+      .from("guests")
+      .select(GUEST_SELECT)
+      .eq("invitation_id", invitationId)
+      .order("created_at", { ascending: false }),
+    "Gagal mengambil daftar tamu invitation.",
+  );
+
+  return guestRows.map(mapGuestRow);
+}
+
+async function getContactableGuestsByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+) {
+  const guestRows = await unwrapList<GuestRow>(
+    await client
+      .from("guests")
+      .select(GUEST_SELECT)
+      .eq("invitation_id", invitationId)
+      .or("phone.not.is.null,email.not.is.null")
+      .order("created_at", { ascending: false }),
+    "Gagal mengambil daftar tamu yang siap dihubungi.",
+  );
+
+  return guestRows.map(mapGuestRow);
+}
+
+async function getGuestsWithResponsesByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+  options?: {
+    onlyWithRsvp?: boolean;
+    limit?: number;
+  },
+) {
+  const query = client
+    .from("guests")
+    .select(options?.onlyWithRsvp ? GUEST_WITH_REQUIRED_RSVP_SELECT : GUEST_WITH_RESPONSES_SELECT)
+    .eq("invitation_id", invitationId)
+    .order("created_at", { ascending: false });
+  const response =
+    typeof options?.limit === "number"
+      ? await query.limit(options.limit)
+      : await query;
+
+  const guestRows = await unwrapList<GuestWithResponsesRow>(
+    response as unknown as PostgrestResponse<GuestWithResponsesRow>,
+    "Gagal mengambil data tamu dan respons invitation.",
+  );
+
+  return guestRows.map(mapGuestWithResponsesRow);
+}
+
+async function getApprovedPublicWishesByInvitationId(
+  invitationId: string,
+  client: SupabaseDbClient,
+  limit = 8,
+): Promise<PublicWish[]> {
+  const wishRows = await unwrapList<WishRow>(
+    await client
+      .from("wishes")
+      .select("id, invitation_id, guest_id, message, is_approved, created_at, updated_at")
+      .eq("invitation_id", invitationId)
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    "Gagal mengambil ucapan invitation.",
+  );
+
+  if (wishRows.length === 0) {
+    return [];
+  }
+
+  const guestRows = await unwrapList<Pick<GuestRow, "id" | "name">>(
+    await client
+      .from("guests")
+      .select("id, name")
+      .in(
+        "id",
+        wishRows.map((wish) => wish.guest_id),
+      ),
+    "Gagal mengambil nama tamu untuk ucapan invitation.",
+  );
+
+  const guestNameById = new Map(guestRows.map((guest) => [guest.id, guest.name]));
+
+  return wishRows.map((wishRow) => ({
+    id: wishRow.id,
+    guestName: guestNameById.get(wishRow.guest_id) ?? "Tamu Istimewa",
+    message: wishRow.message,
+    createdAt: new Date(wishRow.created_at).toISOString(),
+  }));
+}
+
 async function getInvitationRelations(invitationId: string, client: SupabaseDbClient) {
-  const [settingRow, eventSlotRows, galleryRows] = await Promise.all([
-    unwrapMaybeSingle<InvitationSettingRow>(
-      await client
-        .from("invitation_settings")
-        .select(INVITATION_SETTING_SELECT)
-        .eq("invitation_id", invitationId)
-        .maybeSingle(),
-      "Gagal mengambil pengaturan invitation.",
-    ),
-    unwrapList<EventSlotRow>(
-      await client
-        .from("event_slots")
-        .select(EVENT_SLOT_SELECT)
-        .eq("invitation_id", invitationId)
-        .order("sort_order", { ascending: true }),
-      "Gagal mengambil jadwal acara invitation.",
-    ),
-    unwrapList<GalleryImageRow>(
-      await client
-        .from("gallery_images")
-        .select(GALLERY_IMAGE_SELECT)
-        .eq("invitation_id", invitationId)
-        .order("sort_order", { ascending: true }),
-      "Gagal mengambil galeri invitation.",
-    ),
+  const [setting, eventSlots, galleryImages] = await Promise.all([
+    getInvitationSettingByInvitationId(invitationId, client),
+    getInvitationEventSlotsByInvitationId(invitationId, client),
+    getInvitationGalleryImagesByInvitationId(invitationId, client),
   ]);
 
   return {
-    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
-    eventSlots: eventSlotRows.map(mapEventSlotRow),
-    galleryImages: galleryRows.map(mapGalleryImageRow),
+    setting,
+    eventSlots,
+    galleryImages,
   };
 }
 
@@ -718,6 +960,417 @@ export async function getOrCreateDashboardInvitation(
   return createDefaultInvitation(userId, displayName ?? undefined, readableClient);
 }
 
+const getCachedDashboardInvitationCore = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    return getInvitationBaseByOwnerId(cacheUserId, adminClient);
+  },
+  ["dashboard-invitation-core"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationSettingsView = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const setting = await getInvitationSettingByInvitationId(invitation.id, adminClient);
+
+    return {
+      ...invitation,
+      setting,
+    } satisfies DashboardInvitationSettingsView;
+  },
+  ["dashboard-invitation-settings"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationMediaView = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const galleryImages = await getInvitationGalleryImagesByInvitationId(invitation.id, adminClient);
+
+    return {
+      ...invitation,
+      galleryImages,
+    } satisfies DashboardInvitationMediaView;
+  },
+  ["dashboard-invitation-media"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_MEDIA_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationOverview = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const [
+      setting,
+      eventSlots,
+      galleryImageCountResult,
+      guestCountResult,
+      rsvpCountResult,
+      attendingCountResult,
+      declinedCountResult,
+      sampleGuestRows,
+    ] = await Promise.all([
+      getInvitationSettingByInvitationId(invitation.id, adminClient),
+      getInvitationEventSlotsByInvitationId(invitation.id, adminClient),
+      adminClient
+        .from("gallery_images")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      adminClient
+        .from("guests")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id)
+        .eq("rsvps.status", "ATTENDING"),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id)
+        .eq("rsvps.status", "DECLINED"),
+      unwrapList<Pick<GuestRow, "guest_slug">>(
+        await adminClient
+          .from("guests")
+          .select("guest_slug")
+          .eq("invitation_id", invitation.id)
+          .order("created_at", { ascending: false })
+          .limit(1),
+        "Gagal mengambil tamu contoh invitation.",
+      ),
+    ]);
+
+    if (galleryImageCountResult.error) {
+      throw new Error("Gagal menghitung jumlah galeri invitation.");
+    }
+    if (guestCountResult.error) {
+      throw new Error("Gagal menghitung jumlah tamu invitation.");
+    }
+
+    if (rsvpCountResult.error) {
+      throw new Error("Gagal menghitung jumlah RSVP invitation.");
+    }
+    if (attendingCountResult.error || declinedCountResult.error) {
+      throw new Error("Gagal menghitung ringkasan status RSVP invitation.");
+    }
+
+    return {
+      ...invitation,
+      setting,
+      eventSlots,
+      galleryImageCount: galleryImageCountResult.count ?? 0,
+      guestCount: guestCountResult.count ?? 0,
+      rsvpCount: rsvpCountResult.count ?? 0,
+      attendingCount: attendingCountResult.count ?? 0,
+      declinedCount: declinedCountResult.count ?? 0,
+      sampleGuestSlug: sampleGuestRows[0]?.guest_slug ?? null,
+    } satisfies DashboardInvitationOverview;
+  },
+  ["dashboard-invitation-overview"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_OVERVIEW_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationGuestsView = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const [guests, totalRsvpCountResult] = await Promise.all([
+      getInvitationGuestsByInvitationId(invitation.id, adminClient),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+    ]);
+
+    if (totalRsvpCountResult.error) {
+      throw new Error("Gagal menghitung RSVP untuk daftar tamu invitation.");
+    }
+
+    return {
+      coupleSlug: invitation.coupleSlug,
+      totalRsvpCount: totalRsvpCountResult.count ?? 0,
+      guests,
+    } satisfies DashboardInvitationGuestsView;
+  },
+  ["dashboard-invitation-guests"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_GUESTS_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationSendView = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const [guests, totalGuestCountResult] = await Promise.all([
+      getContactableGuestsByInvitationId(invitation.id, adminClient),
+      adminClient
+        .from("guests")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+    ]);
+
+    if (totalGuestCountResult.error) {
+      throw new Error("Gagal menghitung total tamu untuk distribusi invitation.");
+    }
+
+    return {
+      id: invitation.id,
+      coupleSlug: invitation.coupleSlug,
+      status: invitation.status,
+      totalGuestCount: totalGuestCountResult.count ?? 0,
+      guests,
+    } satisfies DashboardInvitationSendView;
+  },
+  ["dashboard-invitation-send"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_SEND_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationRsvpView = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const guests = await getGuestsWithResponsesByInvitationId(invitation.id, adminClient, {
+      onlyWithRsvp: true,
+    });
+
+    return {
+      coupleSlug: invitation.coupleSlug,
+      guests: guests
+        .filter((guest): guest is DashboardInvitationGuest & { rsvp: RsvpRecord } => Boolean(guest.rsvp))
+        .sort((left, right) => right.rsvp.respondedAt.getTime() - left.rsvp.respondedAt.getTime()),
+    } satisfies DashboardInvitationRsvpView;
+  },
+  ["dashboard-invitation-rsvp"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_RSVP_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationPreview = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const [relations, previewGuests, guestCountResult, approvedWishes] = await Promise.all([
+      getInvitationRelations(invitation.id, adminClient),
+      getGuestsWithResponsesByInvitationId(invitation.id, adminClient, { limit: 1 }),
+      adminClient
+        .from("guests")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      getApprovedPublicWishesByInvitationId(invitation.id, adminClient),
+    ]);
+
+    if (guestCountResult.error) {
+      throw new Error("Gagal menghitung jumlah tamu untuk preview invitation.");
+    }
+
+    return {
+      ...invitation,
+      ...relations,
+      guestCount: guestCountResult.count ?? 0,
+      previewGuest: previewGuests[0] ?? null,
+      approvedWishes,
+    } satisfies DashboardInvitationPreview;
+  },
+  ["dashboard-invitation-preview"],
+  {
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_PREVIEW_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardAnalyticsSummary = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const invitation = await getInvitationBaseByOwnerId(cacheUserId, adminClient);
+
+    if (!invitation) {
+      return null;
+    }
+
+    const [
+      guestCountResult,
+      totalRsvpResult,
+      attendingResult,
+      declinedResult,
+      maybeResult,
+      totalInvitationOpensResult,
+      viewLogs,
+    ] = await Promise.all([
+      adminClient
+        .from("guests")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id)
+        .eq("rsvps.status", "ATTENDING"),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id)
+        .eq("rsvps.status", "DECLINED"),
+      adminClient
+        .from("guests")
+        .select("id, rsvps!inner(id)", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id)
+        .eq("rsvps.status", "MAYBE"),
+      adminClient
+        .from("invitation_view_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("invitation_id", invitation.id),
+      unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
+        await adminClient
+          .from("invitation_view_logs")
+          .select("guest_id")
+          .eq("invitation_id", invitation.id),
+        "Gagal mengambil log pembukaan invitation.",
+      ),
+    ]);
+
+    if (guestCountResult.error) {
+      throw new Error("Gagal menghitung total tamu invitation.");
+    }
+    if (totalRsvpResult.error) {
+      throw new Error("Gagal menghitung total RSVP invitation.");
+    }
+    if (attendingResult.error || declinedResult.error || maybeResult.error) {
+      throw new Error("Gagal menghitung breakdown RSVP invitation.");
+    }
+    if (totalInvitationOpensResult.error) {
+      throw new Error("Gagal menghitung total open invitation.");
+    }
+
+    return {
+      totalGuests: guestCountResult.count ?? 0,
+      totalPersonalLinks: guestCountResult.count ?? 0,
+      totalRsvps: totalRsvpResult.count ?? 0,
+      totalInvitationOpens: totalInvitationOpensResult.count ?? 0,
+      uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
+      rsvpBreakdown: {
+        attending: attendingResult.count ?? 0,
+        declined: declinedResult.count ?? 0,
+        maybe: maybeResult.count ?? 0,
+      },
+    } satisfies DashboardAnalyticsSummary;
+  },
+  ["dashboard-invitation-analytics"],
+  {
+    tags: [DASHBOARD_ANALYTICS_CACHE_TAG],
+  },
+);
+
+const getCachedDashboardInvitationSummary = unstable_cache(
+  async (cacheUserId: string) => {
+    const adminClient = resolveAdminClient();
+    const response = await adminClient
+      .from("invitations")
+      .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
+      .eq("owner_id", cacheUserId)
+      .maybeSingle();
+    const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
+      response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
+      "Gagal mengambil ringkasan invitation.",
+    );
+
+    return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+  },
+  ["invitation-summary-by-user"],
+  {
+    tags: [DASHBOARD_INVITATION_SUMMARY_CACHE_TAG],
+  },
+);
+
+export async function getDashboardInvitationCore(userId: string) {
+  return getCachedDashboardInvitationCore(userId);
+}
+
+export async function getDashboardInvitationSettingsView(userId: string) {
+  return getCachedDashboardInvitationSettingsView(userId);
+}
+
+export async function getDashboardInvitationMediaView(userId: string) {
+  return getCachedDashboardInvitationMediaView(userId);
+}
+
+export async function getDashboardInvitationOverview(userId: string) {
+  return getCachedDashboardInvitationOverview(userId);
+}
+
+export async function getDashboardInvitationGuestsView(userId: string) {
+  return getCachedDashboardInvitationGuestsView(userId);
+}
+
+export async function getDashboardInvitationSendView(userId: string) {
+  return getCachedDashboardInvitationSendView(userId);
+}
+
+export async function getDashboardInvitationRsvpView(userId: string) {
+  return getCachedDashboardInvitationRsvpView(userId);
+}
+
+export async function getDashboardInvitationPreview(userId: string) {
+  return getCachedDashboardInvitationPreview(userId);
+}
+
 export async function getDashboardInvitationSummary(userId: string, client?: SupabaseDbClient) {
   if (client) {
     const response = await client
@@ -732,27 +1385,6 @@ export async function getDashboardInvitationSummary(userId: string, client?: Sup
 
     return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
   }
-
-  const getCachedDashboardInvitationSummary = unstable_cache(
-    async (cacheUserId: string) => {
-      const adminClient = resolveAdminClient();
-      const response = await adminClient
-        .from("invitations")
-        .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
-        .eq("owner_id", cacheUserId)
-        .maybeSingle();
-      const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
-        response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
-        "Gagal mengambil ringkasan invitation.",
-      );
-
-      return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
-    },
-    ["invitation-summary-by-user"],
-    {
-      tags: [DASHBOARD_INVITATION_SUMMARY_CACHE_TAG],
-    },
-  );
 
   return getCachedDashboardInvitationSummary(userId);
 }
@@ -859,71 +1491,65 @@ export async function trackInvitationOpen(
   );
 }
 
+export async function getDashboardSendSummary(
+  invitationId: string,
+  totalGuests: number,
+  client?: SupabaseDbClient,
+): Promise<DashboardSendSummary> {
+  const readableClient = resolveAdminClient(client);
+  const sendLogs = await unwrapList<Pick<TableRow<"send_logs">, "guest_id" | "created_at">>(
+    await readableClient
+      .from("send_logs")
+      .select("guest_id, created_at")
+      .eq("invitation_id", invitationId),
+    "Gagal mengambil ringkasan distribusi invitation.",
+  );
+
+  const sentGuestIds = new Set(
+    sendLogs
+      .map((log) => log.guest_id)
+      .filter((guestId): guestId is string => Boolean(guestId)),
+  );
+  const latestSentAt =
+    sendLogs.length > 0
+      ? new Date(
+          sendLogs.reduce((latest, log) => {
+            const current = new Date(log.created_at).getTime();
+            return current > latest ? current : latest;
+          }, 0),
+        )
+      : null;
+
+  return {
+    sentGuests: sentGuestIds.size,
+    pendingGuests: Math.max(totalGuests - sentGuestIds.size, 0),
+    totalSendLogs: sendLogs.length,
+    latestSentAt,
+  };
+}
+
 export async function getDashboardAnalyticsSummary(
   userId: string,
   client?: SupabaseDbClient,
   existingInvitation?: DashboardInvitationSummary | null,
 ): Promise<DashboardAnalyticsSummary | null> {
-  const readableClient = await resolveServerClient(client);
-  const invitation = existingInvitation ?? (await getDashboardInvitationSummary(userId, readableClient));
+  void client;
+  void existingInvitation;
 
-  if (!invitation) {
-    return null;
-  }
-
-  const getCachedViewLogStats = unstable_cache(
-    async (invitationId: string) => {
-      const adminClient = resolveAdminClient();
-      const [{ count: totalInvitationOpens }, viewLogs] = await Promise.all([
-        adminClient
-          .from("invitation_view_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("invitation_id", invitationId),
-        unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
-          await adminClient
-            .from("invitation_view_logs")
-            .select("guest_id")
-            .eq("invitation_id", invitationId),
-          "Gagal mengambil log pembukaan invitation.",
-        ),
-      ]);
-
-      return {
-        totalInvitationOpens: totalInvitationOpens ?? 0,
-        uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
-      };
-    },
-    ["dashboard-view-log-stats"],
-    {
-      tags: [DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG],
-    },
-  );
-
-  const viewLogStats = await getCachedViewLogStats(invitation.id);
-
-  const totalGuests = invitation.guests.length;
-  const totalRsvps = invitation.guests.filter((guest) => Boolean(guest.rsvp)).length;
-  const attending = invitation.guests.filter((guest) => guest.rsvp?.status === "ATTENDING").length;
-  const declined = invitation.guests.filter((guest) => guest.rsvp?.status === "DECLINED").length;
-  const maybe = invitation.guests.filter((guest) => guest.rsvp?.status === "MAYBE").length;
-
-  return {
-    totalGuests,
-    totalPersonalLinks: totalGuests,
-    totalRsvps,
-    totalInvitationOpens: viewLogStats.totalInvitationOpens,
-    uniqueGuestOpens: viewLogStats.uniqueGuestOpens,
-    rsvpBreakdown: {
-      attending,
-      declined,
-      maybe,
-    },
-  };
+  return getCachedDashboardAnalyticsSummary(userId);
 }
 
 export const dashboardCacheTags = {
+  core: DASHBOARD_CORE_CACHE_TAG,
+  overview: DASHBOARD_OVERVIEW_CACHE_TAG,
+  media: DASHBOARD_MEDIA_CACHE_TAG,
+  guests: DASHBOARD_GUESTS_CACHE_TAG,
+  send: DASHBOARD_SEND_CACHE_TAG,
+  rsvp: DASHBOARD_RSVP_CACHE_TAG,
+  preview: DASHBOARD_PREVIEW_CACHE_TAG,
   invitationSummary: DASHBOARD_INVITATION_SUMMARY_CACHE_TAG,
-  analyticsSummary: DASHBOARD_ANALYTICS_SUMMARY_CACHE_TAG,
+  analytics: DASHBOARD_ANALYTICS_CACHE_TAG,
+  publicInvitation: PUBLIC_INVITATION_CACHE_TAG,
 } as const;
 
 export function validateInvitationPublishability(invitation: {
@@ -939,7 +1565,8 @@ export function validateInvitationPublishability(invitation: {
     latitude?: number | null;
     longitude?: number | null;
   }>;
-  guests: Array<{ id: string }>;
+  guests?: Array<{ id: string }>;
+  guestCount?: number;
 }) {
   const primaryEvent = invitation.eventSlots[0];
   const checklist: InvitationPublishChecklistItem[] = [
@@ -977,12 +1604,6 @@ export function validateInvitationPublishability(invitation: {
           isFiniteCoordinate(primaryEvent?.longitude ?? null),
       ),
       helper: "Pilih titik lokasi utama dari peta agar venue, alamat, dan koordinat tersimpan rapi.",
-    },
-    {
-      id: "guest-list",
-      label: "Minimal satu tamu",
-      isComplete: invitation.guests.length > 0,
-      helper: "Public invitation route baru berguna setelah ada minimal satu guest.",
     },
   ];
 

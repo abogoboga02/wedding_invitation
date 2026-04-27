@@ -9,7 +9,7 @@ export default function PublicInvitationNotFound() {
           Link undangan tidak ditemukan
         </h1>
         <p className="mt-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-          Bisa jadi slug pasangan atau slug tamu tidak cocok, atau invitation belum dipublish.
+          Bisa jadi slug pasangan tidak cocok, atau undangan memang belum dipublish.
         </p>
         <Link
           href="/"

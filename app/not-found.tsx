@@ -11,7 +11,7 @@ export default function NotFound() {
           Link ini belum tersedia
         </h1>
         <p className="mt-4 text-sm leading-7 text-stone-600">
-          Pastikan slug pasangan dan slug tamu benar, atau undangan sudah dipublikasikan.
+          Pastikan slug pasangan benar, atau undangan memang belum dipublikasikan.
         </p>
         <Link
           href="/"

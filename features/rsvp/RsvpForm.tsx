@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { RSVP_STATUS_OPTIONS } from "@/lib/constants/invitation";
 
-import { submitRsvpAction, type PublicActionState } from "@/app/[coupleSlug]/[guestSlug]/_actions/rsvp-actions";
+import { submitRsvpAction, type PublicActionState } from "@/app/[coupleSlug]/_actions/rsvp-actions";
 import type { InvitationRenderModel } from "@/features/invitation/invitation.types";
 
 const initialState: PublicActionState = {};

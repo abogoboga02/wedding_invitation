@@ -26,12 +26,12 @@ export const metadata: Metadata = {
     template: "%s | Atelier Amora",
   },
   description:
-    "MVP web app undangan digital personal dengan link tamu unik, dashboard pengantin, dan template premium.",
+    "MVP web app undangan digital dengan link tamu yang rapi, dashboard pengantin, dan template premium.",
   applicationName: "Atelier Amora",
   keywords: [
     "undangan digital",
     "wedding invitation",
-    "personal link tamu",
+    "link tamu",
     "dashboard undangan",
     "RSVP online",
   ],
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     title: "Atelier Amora",
     description:
-      "Undangan digital personal dengan link tamu unik, dashboard ringan, dan template premium.",
+      "Undangan digital dengan link tamu yang rapi, dashboard ringan, dan template premium.",
     siteName: "Atelier Amora",
     images: [
       {
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Atelier Amora",
     description:
-      "Undangan digital personal dengan link tamu unik, dashboard ringan, dan template premium.",
+      "Undangan digital dengan link tamu yang rapi, dashboard ringan, dan template premium.",
     images: ["/opengraph-image"],
   },
 };

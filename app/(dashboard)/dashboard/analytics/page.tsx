@@ -1,6 +1,5 @@
 import {
   getDashboardAnalyticsSummary,
-  getDashboardInvitationSummary,
 } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
@@ -10,10 +9,9 @@ import { DashboardStatCard } from "../_components/DashboardStatCard";
 
 export default async function DashboardAnalyticsPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
-  const analytics = await getDashboardAnalyticsSummary(user.id, undefined, invitation);
+  const analytics = await getDashboardAnalyticsSummary(user.id);
 
-  if (!invitation || !analytics) {
+  if (!analytics) {
     return null;
   }
 
@@ -25,7 +23,7 @@ export default async function DashboardAnalyticsPage() {
       <DashboardPageHeader
         eyebrow="Analytics Sederhana"
         title="Pantau performa invitation secara cepat dan jelas"
-        description="Dashboard ini fokus pada sinyal yang paling penting untuk client di tahap MVP: jumlah tamu, link personal, total open, total RSVP, dan breakdown status kehadiran."
+        description="Dashboard ini fokus pada sinyal yang paling penting untuk client di tahap MVP: jumlah tamu, link tamu, total open, total RSVP, dan breakdown status kehadiran."
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -35,9 +33,9 @@ export default async function DashboardAnalyticsPage() {
           helper="Jumlah guest yang terhubung ke invitation."
         />
         <DashboardStatCard
-          label="Total link personal"
+          label="Total link tamu"
           value={analytics.totalPersonalLinks}
-          helper="Satu guest menghasilkan satu personal link."
+          helper="Satu guest menghasilkan satu link tamu."
         />
         <DashboardStatCard
           label="Invitation opened"
@@ -81,7 +79,7 @@ export default async function DashboardAnalyticsPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {[
             analytics.totalInvitationOpens === 0
-              ? "Belum ada invitation yang dibuka. Bagikan personal link ke tamu untuk mulai mengumpulkan data open."
+              ? "Belum ada invitation yang dibuka. Bagikan link tamu ke penerima untuk mulai mengumpulkan data open."
               : `${analytics.totalInvitationOpens} total open sudah tercatat sejak invitation dibagikan.`,
             analytics.totalRsvps === 0
               ? "RSVP belum masuk. Setelah tamu mengisi form di halaman invitation, angka ini akan ter-update otomatis."

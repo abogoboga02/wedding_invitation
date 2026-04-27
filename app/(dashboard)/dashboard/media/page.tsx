@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
-import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { getDashboardInvitationMediaView } from "@/features/invitation/invitation.service";
 import { requireClientUser } from "@/lib/auth/guards";
 
 import { DashboardPageHeader } from "../_components/DashboardPageHeader";
@@ -19,7 +19,7 @@ const MediaStudioForm = dynamic(
 
 export default async function DashboardMediaPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const invitation = await getDashboardInvitationMediaView(user.id);
 
   if (!invitation) {
     return null;

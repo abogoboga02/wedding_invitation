@@ -404,7 +404,7 @@ export const commonInvitationFormSections: InvitationFormSectionDefinition[] = [
     id: "interaction",
     title: "Interaksi tamu",
     description:
-      "Kontrol bagian invitation yang ingin ditampilkan saat tamu membuka link personal mereka.",
+      "Kontrol bagian invitation yang ingin ditampilkan saat tamu membuka link undangan mereka.",
     fields: [
       {
         name: "isRsvpEnabled",

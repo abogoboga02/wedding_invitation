@@ -3,9 +3,14 @@ import type { InvitationTemplate, RsvpStatus } from "@/lib/domain/types";
 export const RESERVED_SLUGS = new Set([
   "login",
   "register",
+  "forgot-password",
+  "reset-password",
   "dashboard",
+  "admin",
   "api",
   "preview",
+  "pricing",
+  "templates",
 ]);
 
 export const TEMPLATE_OPTIONS: Array<{

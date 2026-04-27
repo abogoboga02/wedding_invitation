@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { unwrapList } from "@/lib/supabase/helpers";
+import { getPublicInvitationPath } from "@/features/invitation/public-invitation.service";
 import { buildSiteHref } from "@/lib/utils/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -45,37 +46,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       return staticRoutes;
     }
 
-    const guestRows = await unwrapList(
-      await admin
-        .from("guests")
-        .select("invitation_id, guest_slug, created_at")
-        .in(
-          "invitation_id",
-          invitations.map((invitation) => invitation.id),
-        )
-        .order("created_at", { ascending: true }),
-      "Gagal mengambil guest untuk sitemap.",
-    );
-
-    const guestsByInvitationId = new Map<string, string[]>();
-    guestRows.forEach((guest) => {
-      const currentGuests = guestsByInvitationId.get(guest.invitation_id) ?? [];
-
-      if (currentGuests.length < 10) {
-        currentGuests.push(guest.guest_slug);
-      }
-
-      guestsByInvitationId.set(guest.invitation_id, currentGuests);
-    });
-
-    const invitationRoutes: MetadataRoute.Sitemap = invitations.flatMap((invitation) =>
-      (guestsByInvitationId.get(invitation.id) ?? []).map((guestSlug) => ({
-        url: buildSiteHref(`/${invitation.couple_slug}/${guestSlug}`),
-        lastModified: new Date(invitation.updated_at),
-        changeFrequency: "weekly",
-        priority: 0.7,
-      })),
-    );
+    const invitationRoutes: MetadataRoute.Sitemap = invitations.map((invitation) => ({
+      url: buildSiteHref(getPublicInvitationPath(invitation.couple_slug)),
+      lastModified: new Date(invitation.updated_at),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    }));
 
     return [...staticRoutes, ...invitationRoutes];
   } catch {

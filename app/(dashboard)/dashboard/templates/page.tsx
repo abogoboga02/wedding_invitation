@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getDashboardInvitationSummary } from "@/features/invitation/invitation.service";
+import { getDashboardInvitationCore } from "@/features/invitation/invitation.service";
 import { getTemplateDisplayName } from "@/features/invitation/templates/template-schema";
 import { requireClientUser } from "@/lib/auth/guards";
 
@@ -8,7 +8,7 @@ import { DashboardPageHeader } from "../_components/DashboardPageHeader";
 
 export default async function DashboardTemplatesPage() {
   const user = await requireClientUser();
-  const invitation = await getDashboardInvitationSummary(user.id);
+  const invitation = await getDashboardInvitationCore(user.id);
 
   if (!invitation) {
     return null;
