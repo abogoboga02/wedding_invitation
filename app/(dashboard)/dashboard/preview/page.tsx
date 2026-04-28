@@ -5,6 +5,7 @@ import {
 } from "@/features/invitation/invitation.service";
 import { TemplateRenderer } from "@/features/invitation/templates/TemplateRenderer";
 import { requireClientUser } from "@/lib/auth/guards";
+import { formatAdminDateTime } from "@/lib/utils/date";
 
 import { InvitationStatusBadge } from "../_components/InvitationStatusBadge";
 import { PreviewPublishActions } from "./_components/PreviewPublishActions";
@@ -14,7 +15,7 @@ function PreviewRsvpPlaceholder() {
     <div className="space-y-3">
       <p>Area RSVP akan muncul di sini untuk setiap tamu yang membuka link undangan.</p>
       <p>
-        Saat undangan live, tamu dapat memilih kehadiran dan meninggalkan ucapan langsung dari
+        Saat undangan live, tamu dapat mengonfirmasi kehadiran dan meninggalkan ucapan langsung dari
         section ini.
       </p>
     </div>
@@ -34,6 +35,9 @@ export default async function DashboardPreviewPage() {
     ...invitation,
     guestCount: invitation.guestCount,
   });
+  const publishedAtLabel = invitation.publishedAt
+    ? formatAdminDateTime(invitation.publishedAt)
+    : null;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -59,7 +63,7 @@ export default async function DashboardPreviewPage() {
 
           <PreviewPublishActions
             status={invitation.status}
-            publishedAt={invitation.publishedAt}
+            publishedAtLabel={publishedAtLabel}
             validationErrors={publishValidation.errors}
           />
         </div>

@@ -47,14 +47,17 @@ export default async function DashboardGuestsPage() {
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="space-y-6">
-          <GuestAddForm />
-          <CsvImporter />
-        </div>
+      <div className="space-y-6">
+  <div className="grid gap-6 md:grid-cols-[0.8fr_1.2fr]">
+    <GuestAddForm />
+    <CsvImporter />
+  </div>
 
-        <GuestList coupleSlug={invitation.coupleSlug} guests={invitation.guests} />
-      </div>
+  <GuestList 
+    coupleSlug={invitation.coupleSlug} 
+    guests={invitation.guests} 
+  />
+</div>
     </div>
   );
 }

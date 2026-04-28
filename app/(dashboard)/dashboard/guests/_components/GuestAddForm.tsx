@@ -21,23 +21,18 @@ export function GuestAddForm() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <input
-          name="name"
-          placeholder="Nama tamu"
-          className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
-        />
-        <input
-          name="phone"
-          placeholder="Nomor WhatsApp"
-          className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
-        />
-        <input
-          name="email"
-          placeholder="Email (opsional)"
-          className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
-        />
-      </div>
+      <div className="grid gap-4">
+  <input
+    name="name"
+    placeholder="Nama tamu"
+    className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
+  />
+  <input
+    name="phone"
+    placeholder="Nomor WhatsApp"
+    className="rounded-2xl border border-stone-300 px-4 py-3 text-sm" 
+  />
+</div>
 
       {state.error ? (
         <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

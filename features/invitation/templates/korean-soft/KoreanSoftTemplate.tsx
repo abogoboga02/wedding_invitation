@@ -180,27 +180,9 @@ export function KoreanSoftTemplate({
       : heroVisual,
   ];
 
-  const storyMoments = [
-    {
-      id: "first-meeting",
-      title: "Awal Bertemu",
-      narrative: config.loveStory.firstMeeting.trim(),
-    },
-    {
-      id: "proposal",
-      title: "Lamaran",
-      narrative: config.loveStory.proposal.trim(),
-    },
-    {
-      id: "wedding-day",
-      title: "Hari Bahagia",
-      narrative: config.loveStory.wedding.trim(),
-    },
-  ].filter((item) => item.narrative);
-
   const resolvedStoryMoments =
-    storyMoments.length > 0
-      ? storyMoments
+    loveStory.moments.length > 0
+      ? loveStory.moments
       : [
           {
             id: "story-fallback",
@@ -367,7 +349,21 @@ export function KoreanSoftTemplate({
                       Dipanggil {profile.nickname}
                     </p>
                   ) : null}
+                  {profile.parentLine ? (
+                    <p className={`mt-3 text-sm leading-7 ${theme.muted}`}>{profile.parentLine}</p>
+                  ) : null}
                   <p className={`mt-4 text-sm leading-7 ${theme.muted}`}>{profile.bio}</p>
+                  {profile.social ? (
+                    <a
+                      href={profile.social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex rounded-full bg-[#f3e8df] px-3 py-2 text-sm font-semibold text-[#795546]"
+                    >
+                      {profile.social.platform === "instagram" ? "Instagram" : "TikTok"}{" "}
+                      {profile.social.label}
+                    </a>
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -417,6 +413,7 @@ export function KoreanSoftTemplate({
             {eventDetails.events.length > 0 ? (
               eventDetails.events.map((event, index) => {
                 const schedule = formatEventDateTime(event.startsAt);
+                const resolvedTimeLabel = event.timeLabel?.trim() || schedule.time;
                 const locationUrl = event.googleMapsUrl ?? event.mapsUrl;
 
                 return (
@@ -429,7 +426,7 @@ export function KoreanSoftTemplate({
                         <p className={`text-[11px] uppercase tracking-[0.26em] ${theme.ornament}`}>
                           {schedule.date}
                         </p>
-                        <p className="mt-2 font-semibold text-[#5a3d34]">{schedule.time}</p>
+                        <p className="mt-2 font-semibold text-[#5a3d34]">{resolvedTimeLabel}</p>
                       </div>
                     </div>
 

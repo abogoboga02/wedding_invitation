@@ -1,3 +1,7 @@
+import {
+  resolveInvitationLeadImage,
+  resolveInvitationSocialLink,
+} from "@/features/invitation/display";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
 import type { InvitationTemplateConfigValues } from "@/features/invitation/form/config";
 import type { InvitationStatus, InvitationTemplate, RsvpStatus } from "@/lib/domain/types";
@@ -10,6 +14,7 @@ export type SharedInvitationEvent = {
   id: string;
   label: string;
   startsAt: string;
+  timeLabel?: string | null;
   venueName: string;
   address: string;
   placeName?: string | null;
@@ -91,11 +96,25 @@ export type SharedInvitationTemplateData = {
       partnerOne: {
         fullName: string;
         nickname?: string | null;
+        parentLine?: string | null;
+        social?: {
+          platform: "instagram" | "tiktok";
+          handle: string;
+          href: string;
+          label: string;
+        } | null;
         bio: string;
       };
       partnerTwo: {
         fullName: string;
         nickname?: string | null;
+        parentLine?: string | null;
+        social?: {
+          platform: "instagram" | "tiktok";
+          handle: string;
+          href: string;
+          label: string;
+        } | null;
         bio: string;
       };
     };
@@ -114,6 +133,11 @@ export type SharedInvitationTemplateData = {
     loveStory: {
       title: string;
       narrative: string;
+      moments: Array<{
+        id: string;
+        title: string;
+        narrative: string;
+      }>;
     };
     weddingGift: {
       title: string;
@@ -167,18 +191,37 @@ export function buildSharedInvitationTemplateData(
   invitation: InvitationRenderModel,
 ): SharedInvitationTemplateData {
   const primaryEvent = invitation.events[0] ?? null;
-  const coverImage = invitation.coverImage
-    ? {
-        url: invitation.coverImage,
-        altText: invitation.coverImageAlt,
-      }
-    : null;
+  const leadImage = resolveInvitationLeadImage({
+    invitationId: invitation.id,
+    partnerOneName: invitation.partnerOneName,
+    partnerTwoName: invitation.partnerTwoName,
+    coverImage: invitation.coverImage,
+    coverImageAlt: invitation.coverImageAlt,
+    galleryImages: invitation.galleryImages,
+  });
   const generatedCopy = buildGeneratedInvitationCopy({
     templateSlug: invitation.templateSlug,
     partnerOneName: invitation.partnerOneName,
     partnerTwoName: invitation.partnerTwoName,
     config: invitation.templateConfig,
   });
+  const loveStoryMoments = [
+    {
+      id: "first-meeting",
+      title: "Awal Perkenalan",
+      narrative: invitation.templateConfig.loveStory.firstMeeting.trim(),
+    },
+    {
+      id: "proposal",
+      title: "Proses Lamaran",
+      narrative: invitation.templateConfig.loveStory.proposal.trim(),
+    },
+    {
+      id: "wedding-day",
+      title: "Hari Bahagia",
+      narrative: invitation.templateConfig.loveStory.wedding.trim(),
+    },
+  ].filter((item) => item.narrative);
 
   return {
     meta: {
@@ -197,7 +240,7 @@ export function buildSharedInvitationTemplateData(
         title: generatedCopy.sections.coverPersonal.title,
         subtitle: generatedCopy.sections.coverPersonal.subtitle,
         guestName: invitation.guestName,
-        image: coverImage,
+        image: leadImage,
         music: getCoverMusic(invitation),
       },
       heroCouple: {
@@ -219,11 +262,21 @@ export function buildSharedInvitationTemplateData(
         partnerOne: {
           fullName: invitation.partnerOneName,
           nickname: invitation.templateConfig.copy.partnerNicknames.partnerOne || null,
+          parentLine: invitation.templateConfig.copy.partnerProfiles.partnerOne.parentLine || null,
+          social: resolveInvitationSocialLink(
+            invitation.templateConfig.copy.partnerProfiles.partnerOne.socialPlatform,
+            invitation.templateConfig.copy.partnerProfiles.partnerOne.socialHandle,
+          ),
           bio: generatedCopy.sections.profiles.partnerOneSummary,
         },
         partnerTwo: {
           fullName: invitation.partnerTwoName,
           nickname: invitation.templateConfig.copy.partnerNicknames.partnerTwo || null,
+          parentLine: invitation.templateConfig.copy.partnerProfiles.partnerTwo.parentLine || null,
+          social: resolveInvitationSocialLink(
+            invitation.templateConfig.copy.partnerProfiles.partnerTwo.socialPlatform,
+            invitation.templateConfig.copy.partnerProfiles.partnerTwo.socialHandle,
+          ),
           bio: generatedCopy.sections.profiles.partnerTwoSummary,
         },
       },
@@ -242,6 +295,7 @@ export function buildSharedInvitationTemplateData(
       loveStory: {
         title: generatedCopy.sections.loveStory.title,
         narrative: generatedCopy.sections.loveStory.narrative,
+        moments: loveStoryMoments,
       },
       weddingGift: {
         title: generatedCopy.sections.weddingGift.title,

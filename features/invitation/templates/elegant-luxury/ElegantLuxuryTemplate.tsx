@@ -8,6 +8,7 @@ import {
   CoupleProfiles,
   EventDetailCards,
   GalleryGrid,
+  LoveStoryMoments,
   MusicPlayerCard,
   WeddingGiftBlock,
   WishesList,
@@ -160,7 +161,9 @@ export function ElegantLuxuryTemplate({
           <section className={`rounded-[2rem] p-6 text-center sm:p-8 ${theme.surface}`}>
             <GoldDivider />
             <p className="mt-5 text-xs uppercase tracking-[0.34em] text-[#cdb980]/75">{loveStory.title}</p>
-            <p className="mx-auto mt-5 max-w-3xl text-base leading-8 text-[#dacba3]/82">{loveStory.narrative}</p>
+            <div className="mx-auto mt-5 max-w-3xl text-left">
+              <LoveStoryMoments loveStory={loveStory} theme={theme} />
+            </div>
             <p className="mt-6 text-sm uppercase tracking-[0.32em] text-[#cdb980]/60">
               {config.theme.dresscode}
             </p>

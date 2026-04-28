@@ -1,9 +1,12 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
+import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { getOrCreateDashboardInvitation } from "@/features/invitation/invitation.service";
+import { setupEventFieldGroups } from "@/features/invitation/invitation.schema";
 import { requireClientUser } from "@/lib/auth/guards";
 import { getTemplateDisplayName } from "@/features/invitation/templates/template-schema";
+import { formatDateTimeInputValue } from "@/lib/utils/date";
 
 const SetupInvitationForm = dynamic(
   () => import("./_components/SetupInvitationForm").then((mod) => mod.SetupInvitationForm),
@@ -19,8 +22,36 @@ const SetupInvitationForm = dynamic(
 export default async function DashboardSetupPage() {
   const user = await requireClientUser();
   const invitation = await getOrCreateDashboardInvitation(user.id, user.name);
+  const normalizedTemplateConfig = normalizeTemplateConfig(
+    invitation.template,
+    invitation.templateConfig,
+  );
 
   const activeTemplateLabel = invitation.templateName ?? getTemplateDisplayName(invitation.template);
+  const setupEventSnapshots = setupEventFieldGroups.map((group, index) => {
+    const eventSlot = invitation.eventSlots[index];
+    const dateTimeInput = eventSlot
+      ? formatDateTimeInputValue(eventSlot.startsAt, invitation.setting?.timezone ?? "Asia/Jakarta")
+      : "";
+    const [dateInput = "", fallbackTimeInput = ""] = dateTimeInput.split("T");
+    const timeInput =
+      normalizedTemplateConfig.schedule.eventTimeLabels[group.key] || fallbackTimeInput;
+
+    return {
+      key: group.key,
+      label: eventSlot?.label,
+      venueName: eventSlot?.venueName,
+      address: eventSlot?.address,
+      mapsUrl: eventSlot?.mapsUrl,
+      placeName: eventSlot?.placeName,
+      formattedAddress: eventSlot?.formattedAddress,
+      latitude: eventSlot?.latitude,
+      longitude: eventSlot?.longitude,
+      googleMapsUrl: eventSlot?.googleMapsUrl,
+      dateInput,
+      timeInput,
+    };
+  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -34,9 +65,9 @@ export default async function DashboardSetupPage() {
               Isi detail utama undangan
             </h1>
             <p className="max-w-3xl text-sm leading-7 text-[var(--color-text-secondary)]">
-              Lengkapi data inti terlebih dahulu agar undangan mudah ditinjau dan siap
-              dipublikasikan. Media dan preview tetap bisa dibuka kapan saja tanpa membuat alur
-              pengisian terasa ramai.
+              Mulai dari data pasangan, maksimal tiga acara, sampai cerita cinta inti. Setelah
+              struktur dasar rapi, halaman media dan preview tinggal melanjutkan tanpa membuat flow
+              pengisian terasa berat.
             </p>
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-text-secondary)]">
 Template pilihan admin: {activeTemplateLabel}
@@ -60,7 +91,12 @@ Template pilihan admin: {activeTemplateLabel}
         </div>
       </section>
 
-      <SetupInvitationForm invitation={invitation} />
+      <SetupInvitationForm
+        invitation={{
+          ...invitation,
+          setupEventSnapshots,
+        }}
+      />
     </div>
   );
 }

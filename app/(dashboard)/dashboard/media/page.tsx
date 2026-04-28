@@ -29,15 +29,12 @@ export default async function DashboardMediaPage() {
     <div className="space-y-6">
       <DashboardPageHeader
         eyebrow="Media Upload"
-        title="Kelola cover, galeri, dan lagu pembuka"
-        description="Halaman media menjadi satu studio kecil untuk semua aset utama invitation agar flow setup tetap fokus dan ringan."
+        title="Kelola galeri dan lagu pembuka"
+        description="Halaman media sekarang fokus pada dua hal inti: batch foto pasangan dan pilihan lagu pembuka. Hero undangan akan dipilih otomatis dari galeri yang tersedia."
       />
 
       <MediaStudioForm
         templateConfig={normalizeTemplateConfig(invitation.template, invitation.templateConfig)}
-        coverImage={invitation.coverImage}
-        coverImageAlt={invitation.coverImageAlt}
-        coverImageStoragePath={invitation.coverImageStoragePath}
         galleryImages={invitation.galleryImages}
         musicUrl={invitation.musicUrl}
         musicOriginalName={invitation.musicOriginalName}

@@ -19,8 +19,13 @@ type MediaUploaderProps = {
   name: string;
   kind: UploadKind;
   multiple?: boolean;
+  embedded?: boolean;
+  compact?: boolean;
+  hideHeader?: boolean;
+  hideDropzoneWhenFilled?: boolean;
   initialAssets?: MediaAsset[];
   metadataFieldNames?: Partial<Record<"originalName" | "mimeType" | "size" | "storagePath", string>>;
+  onAssetsChange?: (assets: MediaAsset[]) => void;
 };
 
 function buttonClass() {
@@ -39,14 +44,31 @@ function formatFileSize(size?: number) {
   return `${Math.ceil(size / 1024)} KB`;
 }
 
+function getAssetDisplayName(asset: MediaAsset, index: number, kind: UploadKind) {
+  if (asset.originalName?.trim()) {
+    return asset.originalName;
+  }
+
+  if (kind === "music") {
+    return "Lagu pembuka";
+  }
+
+  return `Foto ${index + 1}`;
+}
+
 export function MediaUploader({
   label,
   helperText,
   name,
   kind,
   multiple = false,
+  embedded = false,
+  compact = false,
+  hideHeader = false,
+  hideDropzoneWhenFilled = false,
   initialAssets = [],
   metadataFieldNames,
+  onAssetsChange,
 }: MediaUploaderProps) {
   const [assets, setAssets] = useState(initialAssets);
   const [error, setError] = useState<string>();
@@ -60,6 +82,12 @@ export function MediaUploader({
 
     return "image/jpeg,image/png,image/webp";
   }, [kind]);
+  const shouldShowDropzone = !(hideDropzoneWhenFilled && !multiple && assets.length > 0);
+
+  function applyAssets(nextAssets: MediaAsset[]) {
+    setAssets(nextAssets);
+    onAssetsChange?.(nextAssets);
+  }
 
   async function uploadFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList);
@@ -93,79 +121,94 @@ export function MediaUploader({
       }
 
       const uploadedAssets = data.assets;
+      const nextAssets = multiple
+        ? [...assets, ...uploadedAssets]
+        : uploadedAssets.slice(0, 1);
 
-      setAssets((currentAssets) =>
-        multiple ? [...currentAssets, ...uploadedAssets] : uploadedAssets.slice(0, 1),
-      );
+      applyAssets(nextAssets);
       setIsUploading(false);
     });
   }
 
   function removeAsset(targetUrl: string) {
-    setAssets((currentAssets) => currentAssets.filter((asset) => asset.url !== targetUrl));
+    applyAssets(assets.filter((asset) => asset.url !== targetUrl));
   }
 
   function moveAsset(targetIndex: number, direction: "left" | "right") {
-    setAssets((currentAssets) => {
-      const nextIndex = direction === "left" ? targetIndex - 1 : targetIndex + 1;
+    const nextIndex = direction === "left" ? targetIndex - 1 : targetIndex + 1;
 
-      if (nextIndex < 0 || nextIndex >= currentAssets.length) {
-        return currentAssets;
-      }
+    if (nextIndex < 0 || nextIndex >= assets.length) {
+      return;
+    }
 
-      const clonedAssets = [...currentAssets];
-      const currentAsset = clonedAssets[targetIndex];
-      clonedAssets[targetIndex] = clonedAssets[nextIndex];
-      clonedAssets[nextIndex] = currentAsset;
-      return clonedAssets;
-    });
+    const nextAssets = [...assets];
+    const currentAsset = nextAssets[targetIndex];
+    nextAssets[targetIndex] = nextAssets[nextIndex];
+    nextAssets[nextIndex] = currentAsset;
+    applyAssets(nextAssets);
   }
 
   return (
-    <div className="space-y-4 rounded-[2rem] border border-[var(--color-border)] bg-[var(--color-surface-alt)]/70 p-5">
-      <div className="space-y-1">
-        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">{label}</h3>
-        <p className="text-sm leading-7 text-[var(--color-text-secondary)]">{helperText}</p>
-      </div>
+    <div
+      className={
+        embedded
+          ? compact
+            ? "space-y-3"
+            : "space-y-4"
+          : "space-y-4 rounded-[2rem] border border-[var(--color-border)] bg-[var(--color-surface-alt)]/70 p-5"
+      }
+    >
+      {!hideHeader ? (
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold text-[var(--color-text-primary)]">{label}</h3>
+          <p className="text-sm leading-7 text-[var(--color-text-secondary)]">{helperText}</p>
+        </div>
+      ) : null}
 
-      <label
-        className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-[1.6rem] border border-dashed px-4 py-6 text-center transition ${
-          isDragging
-            ? "border-[var(--color-primary-strong)] bg-white"
-            : "border-[var(--color-border)] bg-white"
-        }`}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setIsDragging(false);
-          void uploadFiles(event.dataTransfer.files);
-        }}
-      >
-        <input
-          type="file"
-          accept={inputAccept}
-          multiple={multiple}
-          onChange={(event) => {
-            if (event.target.files?.length) {
-              void uploadFiles(event.target.files);
-              event.target.value = "";
-            }
+      {shouldShowDropzone ? (
+        <label
+          className={`flex cursor-pointer flex-col items-center justify-center border border-dashed text-center transition ${
+            compact
+              ? "min-h-28 rounded-[1.3rem] px-4 py-4"
+              : "min-h-36 rounded-[1.6rem] px-4 py-6"
+          } ${
+            isDragging
+              ? "border-[var(--color-primary-strong)] bg-white"
+              : "border-[var(--color-border)] bg-white"
+          }`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragging(true);
           }}
-          className="sr-only"
-        />
-        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-          {isUploading ? "Mengunggah file..." : "Drag & drop atau pilih file"}
-        </p>
-        <p className="mt-2 max-w-sm text-xs leading-6 text-[var(--color-text-secondary)]">
-          {kind === "music"
-            ? "Mendukung MP3, M4A, OGG, atau WAV hingga 12MB."
-            : "Mendukung JPG, PNG, atau WEBP hingga 6MB per file."}
-        </p>
-      </label>
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setIsDragging(false);
+            void uploadFiles(event.dataTransfer.files);
+          }}
+        >
+          <input
+            type="file"
+            accept={inputAccept}
+            multiple={multiple}
+            onChange={(event) => {
+              if (event.target.files?.length) {
+                void uploadFiles(event.target.files);
+                event.target.value = "";
+              }
+            }}
+            className="sr-only"
+          />
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+            {isUploading ? "Mengunggah file..." : "Drag & drop atau pilih file"}
+          </p>
+          <p className="mt-2 max-w-sm text-xs leading-6 text-[var(--color-text-secondary)]">
+            {kind === "music"
+              ? "Mendukung MP3, M4A, OGG, atau WAV hingga 12MB."
+              : "Mendukung JPG, PNG, atau WEBP hingga 6MB per file."}
+          </p>
+        </label>
+      ) : null}
 
       {error ? (
         <p className="rounded-[1.3rem] border border-[rgba(181,87,99,0.2)] bg-[rgba(181,87,99,0.08)] px-4 py-3 text-sm text-[var(--color-error)]">
@@ -174,17 +217,27 @@ export function MediaUploader({
       ) : null}
 
       {assets.length > 0 ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div
+          className={
+            kind === "music"
+              ? "grid gap-3"
+              : compact
+                ? "grid grid-cols-2 gap-3 lg:grid-cols-3"
+                : "grid gap-3 sm:grid-cols-2"
+          }
+        >
           {assets.map((asset, index) => (
             <div
               key={`${asset.url}-${index}`}
-              className="overflow-hidden rounded-[1.5rem] border border-[var(--color-border)] bg-white"
+              className={`overflow-hidden border border-[var(--color-border)] bg-white ${
+                compact ? "rounded-[1.25rem]" : "rounded-[1.5rem]"
+              }`}
             >
               {kind === "music" ? (
-                <div className="space-y-4 p-4">
+                <div className={compact ? "space-y-3 p-3" : "space-y-4 p-4"}>
                   <div>
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      {asset.originalName ?? "Audio undangan"}
+                      {getAssetDisplayName(asset, index, kind)}
                     </p>
                     <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                       {[asset.mimeType, formatFileSize(asset.size)].filter(Boolean).join(" • ")}
@@ -195,25 +248,31 @@ export function MediaUploader({
                   </audio>
                 </div>
               ) : (
-                <div className="relative aspect-[4/3] bg-stone-100">
+                <div
+                  className={`relative bg-stone-100 ${compact ? "aspect-square" : "aspect-[4/3]"}`}
+                >
                   <Image
                     src={asset.url}
                     alt={asset.originalName ?? label}
                     fill
-                    sizes="(max-width: 640px) 100vw, 50vw"
+                    sizes={compact ? "(max-width: 1024px) 50vw, 25vw" : "(max-width: 640px) 100vw, 50vw"}
                     className="object-cover"
                   />
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 ${
+                  compact ? "px-3 py-2.5" : "px-4 py-3"
+                }`}
+              >
                 <div className="min-w-0">
                   <p className="truncate text-xs font-medium text-[var(--color-text-primary)]">
-                    {asset.originalName ?? asset.url}
+                    {getAssetDisplayName(asset, index, kind)}
                   </p>
                   {kind !== "music" ? (
                     <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                      {formatFileSize(asset.size) ?? "Gambar siap dipakai"}
+                      {formatFileSize(asset.size) ?? `Urutan galeri ${index + 1}`}
                     </p>
                   ) : null}
                 </div>

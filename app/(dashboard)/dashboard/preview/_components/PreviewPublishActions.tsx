@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { formatAdminDateTime } from "@/lib/utils/date";
 
 import type { DashboardActionState } from "../../_actions/dashboard-actions";
 import { publishInvitationAction } from "../../_actions/dashboard-actions";
@@ -13,14 +12,14 @@ const initialState: DashboardActionState = {};
 
 type PreviewPublishActionsProps = {
   status: "DRAFT" | "PUBLISHED";
-  publishedAt?: string | Date | null;
+  publishedAtLabel?: string | null;
   validationErrors: string[];
   editHref?: string;
 };
 
 export function PreviewPublishActions({
   status,
-  publishedAt,
+  publishedAtLabel,
   validationErrors,
   editHref = "/dashboard/setup",
 }: PreviewPublishActionsProps) {
@@ -30,7 +29,7 @@ export function PreviewPublishActions({
   return (
     <div className="flex flex-col gap-3 xl:items-end">
       <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-        {publishedAt ? `Dipublish ${formatAdminDateTime(publishedAt)}` : "Masih tersimpan sebagai draft"}
+        {publishedAtLabel ? `Dipublish ${publishedAtLabel}` : "Masih tersimpan sebagai draft"}
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row">

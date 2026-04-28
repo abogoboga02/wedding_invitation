@@ -1,3 +1,4 @@
+import { resolveInvitationLeadImage } from "@/features/invitation/display";
 import { getTemplateConfigSummaryEntries } from "@/features/invitation/form/config";
 import { getMusicPresetById } from "@/lib/constants/music-playlist";
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
@@ -80,6 +81,17 @@ export function buildDraftInvitationPreview(
     renderModel.templateConfig.music.source === "preset"
       ? getMusicPresetById(renderModel.templateConfig.music.presetId)
       : null;
+  const leadImage = resolveInvitationLeadImage({
+    invitationId: invitation.id,
+    partnerOneName: invitation.partnerOneName,
+    partnerTwoName: invitation.partnerTwoName,
+    coverImage: invitation.coverImage,
+    coverImageAlt: invitation.coverImageAlt,
+    galleryImages: invitation.galleryImages.map((image) => ({
+      imageUrl: image.imageUrl,
+      altText: image.altText,
+    })),
+  });
 
   if (!invitation.previewGuest) {
     placeholderNotes.push(
@@ -104,9 +116,9 @@ export function buildDraftInvitationPreview(
     );
   }
 
-  if (!invitation.coverImage) {
+  if (!leadImage) {
     placeholderNotes.push(
-      "Cover image belum tersedia. Hero tetap ditampilkan dengan styling bawaan template aktif.",
+      "Belum ada foto pasangan yang siap dipakai sebagai visual pembuka undangan.",
     );
   }
 

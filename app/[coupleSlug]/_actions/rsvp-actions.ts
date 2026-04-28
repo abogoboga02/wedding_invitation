@@ -20,7 +20,7 @@ export async function submitRsvpAction(
     guestId: formData.get("guestId"),
     respondentName: formData.get("respondentName") || undefined,
     status: formData.get("status"),
-    attendees: formData.get("attendees"),
+    attendees: formData.get("attendees") || 1,
     note: formData.get("note") || undefined,
     wishMessage: formData.get("wishMessage") || undefined,
     coupleSlug: formData.get("coupleSlug"),
@@ -158,7 +158,6 @@ export async function submitRsvpAction(
   revalidateTag(dashboardCacheTags.analytics, "max");
   revalidateTag(dashboardCacheTags.preview, "max");
   revalidateTag(dashboardCacheTags.overview, "max");
-  revalidateTag(dashboardCacheTags.invitationSummary, "max");
 
   return {
     success: "Terima kasih, RSVP Anda sudah kami terima.",

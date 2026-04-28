@@ -21,10 +21,21 @@ export type LocationPickerValue = {
   googleMapsUrl: string | null;
 };
 
+type LocationPickerFieldNames = {
+  placeName: string;
+  formattedAddress: string;
+  latitude: string;
+  longitude: string;
+  googleMapsUrl: string;
+};
+
 type LocationPickerFieldProps = {
   value: LocationPickerValue;
   error?: string;
   embedded?: boolean;
+  title?: string;
+  description?: string;
+  fieldNames?: LocationPickerFieldNames;
   onChange?: (value: LocationPickerValue) => void;
 };
 
@@ -52,10 +63,21 @@ function getInitialSelection(
   };
 }
 
+const defaultFieldNames: LocationPickerFieldNames = {
+  placeName: "placeName",
+  formattedAddress: "formattedAddress",
+  latitude: "latitude",
+  longitude: "longitude",
+  googleMapsUrl: "googleMapsUrl",
+};
+
 export function LocationPickerField({
   value,
   error,
   embedded = false,
+  title = "Titik lokasi acara",
+  description = "Cari nama tempat, pilih hasil yang paling tepat, atau tap titik langsung di peta. Sistem akan menyimpan nama tempat, alamat, koordinat, dan Google Maps URL secara otomatis.",
+  fieldNames = defaultFieldNames,
   onChange,
 }: LocationPickerFieldProps) {
   const initialSelectionRef = useRef<StructuredInvitationLocation | null>(getInitialSelection(value));
@@ -289,11 +311,10 @@ export function LocationPickerField({
     >
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-          Titik lokasi acara
+          {title}
         </h2>
         <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-          Cari nama tempat, pilih hasil yang paling tepat, atau tap titik langsung di peta. Sistem
-          akan menyimpan nama tempat, alamat, koordinat, dan Google Maps URL secara otomatis.
+          {description}
         </p>
       </div>
 
@@ -407,25 +428,29 @@ export function LocationPickerField({
         </div>
       </div>
 
-      <input type="hidden" name="placeName" value={selection?.placeName ?? value.placeName ?? ""} />
       <input
         type="hidden"
-        name="formattedAddress"
+        name={fieldNames.placeName}
+        value={selection?.placeName ?? value.placeName ?? ""}
+      />
+      <input
+        type="hidden"
+        name={fieldNames.formattedAddress}
         value={selection?.formattedAddress ?? value.formattedAddress ?? ""}
       />
       <input
         type="hidden"
-        name="latitude"
+        name={fieldNames.latitude}
         value={selection?.latitude?.toString() ?? ""}
       />
       <input
         type="hidden"
-        name="longitude"
+        name={fieldNames.longitude}
         value={selection?.longitude?.toString() ?? ""}
       />
       <input
         type="hidden"
-        name="googleMapsUrl"
+        name={fieldNames.googleMapsUrl}
         value={selection?.googleMapsUrl ?? value.googleMapsUrl ?? ""}
       />
     </section>

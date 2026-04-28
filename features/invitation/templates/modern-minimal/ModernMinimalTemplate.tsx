@@ -8,6 +8,7 @@ import {
   CoupleProfiles,
   EventDetailCards,
   GalleryGrid,
+  LoveStoryMoments,
   MusicPlayerCard,
   WeddingGiftBlock,
   WishesList,
@@ -173,7 +174,9 @@ export function ModernMinimalTemplate({
               </p>
               <Divider style={config.theme.dividerStyle} />
             </div>
-            <p className="mt-5 text-sm leading-8 text-black/65">{loveStory.narrative}</p>
+            <div className="mt-5">
+              <LoveStoryMoments loveStory={loveStory} theme={theme} />
+            </div>
           </section>
 
           <section className={`rounded-[1.8rem] p-6 ${theme.surface}`}>

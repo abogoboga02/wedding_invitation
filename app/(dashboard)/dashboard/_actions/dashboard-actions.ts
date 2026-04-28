@@ -11,11 +11,12 @@ import {
 } from "@/features/invitation/form/config";
 import {
   buildCommonInvitationSetupInput,
+  buildStructuredSetupEventInputs,
   commonInvitationSetupSchema,
 } from "@/features/invitation/invitation.schema";
 import {
   dashboardCacheTags,
-  getDashboardInvitationSummary,
+  getDashboardInvitationPublishSnapshot,
   getOrCreateDashboardInvitation,
   validateInvitationPublishability,
 } from "@/features/invitation/invitation.service";
@@ -27,11 +28,12 @@ import { getMusicPresetById } from "@/lib/constants/music-playlist";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { deleteStoredFiles } from "@/lib/utils/upload";
-import { isReservedSlug } from "@/lib/utils/slug";
+import { generateUniqueSlug } from "@/lib/utils/slug";
 
 export type DashboardActionState = {
   error?: string;
   success?: string;
+  nextCoupleSlug?: string;
 };
 
 async function getAuthenticatedUser() {
@@ -86,16 +88,38 @@ export async function saveSetupInvitationAction(
     return {
       error:
         errors.partnerOneName?.[0] ??
+        errors.partnerOneParentLine?.[0] ??
+        errors.partnerOneSocialPlatform?.[0] ??
+        errors.partnerOneSocialHandle?.[0] ??
         errors.partnerTwoName?.[0] ??
+        errors.partnerTwoParentLine?.[0] ??
+        errors.partnerTwoSocialPlatform?.[0] ??
+        errors.partnerTwoSocialHandle?.[0] ??
         errors.coupleSlug?.[0] ??
-        errors.eventLabel?.[0] ??
-        errors.eventDate?.[0] ??
-        errors.eventTime?.[0] ??
-        errors.placeName?.[0] ??
-        errors.formattedAddress?.[0] ??
-        errors.latitude?.[0] ??
-        errors.longitude?.[0] ??
-        errors.googleMapsUrl?.[0] ??
+        errors.eventOneLabel?.[0] ??
+        errors.eventOneDate?.[0] ??
+        errors.eventOneTime?.[0] ??
+        errors.eventOnePlaceName?.[0] ??
+        errors.eventOneFormattedAddress?.[0] ??
+        errors.eventOneLatitude?.[0] ??
+        errors.eventOneLongitude?.[0] ??
+        errors.eventOneGoogleMapsUrl?.[0] ??
+        errors.eventTwoLabel?.[0] ??
+        errors.eventTwoDate?.[0] ??
+        errors.eventTwoTime?.[0] ??
+        errors.eventTwoPlaceName?.[0] ??
+        errors.eventTwoFormattedAddress?.[0] ??
+        errors.eventTwoLatitude?.[0] ??
+        errors.eventTwoLongitude?.[0] ??
+        errors.eventTwoGoogleMapsUrl?.[0] ??
+        errors.eventThreeLabel?.[0] ??
+        errors.eventThreeDate?.[0] ??
+        errors.eventThreeTime?.[0] ??
+        errors.eventThreePlaceName?.[0] ??
+        errors.eventThreeFormattedAddress?.[0] ??
+        errors.eventThreeLatitude?.[0] ??
+        errors.eventThreeLongitude?.[0] ??
+        errors.eventThreeGoogleMapsUrl?.[0] ??
         errors.loveStoryFirstMeeting?.[0] ??
         errors.loveStoryProposal?.[0] ??
         errors.loveStoryWedding?.[0] ??
@@ -105,27 +129,22 @@ export async function saveSetupInvitationAction(
     };
   }
 
-  if (isReservedSlug(parsedSetup.data.coupleSlug)) {
-    return {
-      error: "Slug ini dipakai sistem. Silakan pilih slug lain.",
-    };
-  }
-
   const admin = getSupabaseAdminClient();
-  const { data: existingSlugOwner } = await admin
-    .from("invitations")
-    .select("id")
-    .eq("couple_slug", parsedSetup.data.coupleSlug)
-    .neq("owner_id", user.id)
-    .maybeSingle();
+  const resolvedCoupleSlug = await generateUniqueSlug(
+    parsedSetup.data.coupleSlug,
+    async (candidate) => {
+      const { data: existingSlugOwner } = await admin
+        .from("invitations")
+        .select("id")
+        .eq("couple_slug", candidate)
+        .neq("owner_id", user.id)
+        .maybeSingle();
 
-  if (existingSlugOwner?.id) {
-    return {
-      error: "Slug pasangan sudah dipakai. Coba variasi lain.",
-    };
-  }
+      return Boolean(existingSlugOwner?.id);
+    },
+  );
 
-  const startsAt = new Date(`${parsedSetup.data.eventDate}T${parsedSetup.data.eventTime}`);
+  const nextEventSlots = buildStructuredSetupEventInputs(parsedSetup.data);
   const nextTemplateConfig = buildTemplateConfigFromSetupForm(
     invitation.template,
     invitation.templateConfig,
@@ -143,7 +162,7 @@ export async function saveSetupInvitationAction(
     .update({
       partner_one_name: parsedSetup.data.partnerOneName,
       partner_two_name: parsedSetup.data.partnerTwoName,
-      couple_slug: parsedSetup.data.coupleSlug,
+      couple_slug: resolvedCoupleSlug,
       headline: generatedCopy.legacy.headline,
       subheadline: generatedCopy.legacy.subheadline,
       story: generatedCopy.legacy.story,
@@ -171,20 +190,22 @@ export async function saveSetupInvitationAction(
     };
   }
 
-  const insertEventSlot = await supabase.from("event_slots").insert({
-    invitation_id: invitation.id,
-    label: parsedSetup.data.eventLabel,
-    starts_at: startsAt.toISOString(),
-    venue_name: parsedSetup.data.placeName,
-    address: parsedSetup.data.formattedAddress,
-    maps_url: parsedSetup.data.googleMapsUrl,
-    latitude: parsedSetup.data.latitude,
-    longitude: parsedSetup.data.longitude,
-    place_name: parsedSetup.data.placeName,
-    formatted_address: parsedSetup.data.formattedAddress,
-    google_maps_url: parsedSetup.data.googleMapsUrl,
-    sort_order: 0,
-  });
+  const insertEventSlot = await supabase.from("event_slots").insert(
+    nextEventSlots.map((eventSlot) => ({
+      invitation_id: invitation.id,
+      label: eventSlot.label,
+      starts_at: eventSlot.startsAt.toISOString(),
+      venue_name: eventSlot.placeName,
+      address: eventSlot.formattedAddress,
+      maps_url: eventSlot.googleMapsUrl,
+      latitude: eventSlot.latitude,
+      longitude: eventSlot.longitude,
+      place_name: eventSlot.placeName,
+      formatted_address: eventSlot.formattedAddress,
+      google_maps_url: eventSlot.googleMapsUrl,
+      sort_order: eventSlot.sortOrder,
+    })),
+  );
 
   if (insertEventSlot.error) {
     return {
@@ -213,10 +234,14 @@ export async function saveSetupInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/settings");
-  revalidateDashboardCaches(["core", "publicInvitation", "invitationSummary"]);
+  revalidateDashboardCaches(["core", "publicInvitation"]);
 
   return {
-    success: "Setup undangan berhasil diperbarui sebagai draft. Publish ulang untuk mengaktifkan link publik.",
+    success:
+      resolvedCoupleSlug === parsedSetup.data.coupleSlug
+        ? "Setup undangan berhasil diperbarui sebagai draft. Publish ulang untuk mengaktifkan link publik."
+        : `Setup undangan berhasil diperbarui. Slug publik otomatis disesuaikan menjadi "${resolvedCoupleSlug}".`,
+    nextCoupleSlug: resolvedCoupleSlug,
   };
 }
 
@@ -227,9 +252,6 @@ export async function saveMediaInvitationAction(
   const user = await getAuthenticatedUser();
   const supabase = await createServerSupabaseClient();
   const invitation = await getOrCreateDashboardInvitation(user.id, user.name, supabase);
-  const coverImage = String(formData.get("coverImage") ?? "");
-  const coverImageAlt = String(formData.get("coverImageAlt") ?? "");
-  const coverImageStoragePath = String(formData.get("coverImageStoragePath") ?? "");
   const galleryImages = formData
     .getAll("galleryImages")
     .map((value) => String(value))
@@ -271,9 +293,9 @@ export async function saveMediaInvitationAction(
   const updateInvitation = await supabase
     .from("invitations")
     .update({
-      cover_image_url: coverImage || null,
-      cover_image_alt: coverImageAlt || null,
-      cover_image_storage_path: coverImageStoragePath || null,
+      cover_image_url: null,
+      cover_image_alt: null,
+      cover_image_storage_path: null,
       music_url: resolvedMusicUrl || null,
       music_original_name: resolvedMusicName || null,
       music_mime_type: resolvedMusicMimeType || null,
@@ -322,9 +344,7 @@ export async function saveMediaInvitationAction(
     galleryAssets.map((asset) => asset.storagePath).filter(Boolean),
   );
   const obsoleteStoragePaths = uniqueStoragePaths([
-    invitation.coverImageStoragePath !== coverImageStoragePath
-      ? invitation.coverImageStoragePath
-      : null,
+    invitation.coverImageStoragePath,
     invitation.musicStoragePath !== resolvedMusicStoragePath ? invitation.musicStoragePath : null,
     ...invitation.galleryImages
       .map((galleryImage) => galleryImage.storagePath)
@@ -345,7 +365,7 @@ export async function saveMediaInvitationAction(
   revalidatePath("/dashboard/media");
   revalidatePath("/dashboard/setup");
   revalidatePath("/dashboard/preview");
-  revalidateDashboardCaches(["media", "preview", "publicInvitation", "invitationSummary"]);
+  revalidateDashboardCaches(["media", "preview", "publicInvitation"]);
 
   return {
     success: "Media invitation berhasil diperbarui.",
@@ -360,7 +380,7 @@ export async function publishInvitationAction(
   void formData;
   const user = await getAuthenticatedUser();
   const supabase = await createServerSupabaseClient();
-  const invitation = await getDashboardInvitationSummary(user.id, supabase);
+  const invitation = await getDashboardInvitationPublishSnapshot(user.id, supabase);
 
   if (!invitation) {
     return {
@@ -394,7 +414,7 @@ export async function publishInvitationAction(
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/analytics");
   revalidatePath("/dashboard/send");
-  revalidateDashboardCaches(["core", "publicInvitation", "invitationSummary", "analytics"]);
+  revalidateDashboardCaches(["core", "publicInvitation", "analytics"]);
 
   return {
     success: "Invitation berhasil dipublish dan link publik sudah aktif.",
@@ -453,7 +473,7 @@ export async function saveInvitationSettingsAction(
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
-  revalidateDashboardCaches(["core", "preview", "publicInvitation", "invitationSummary"]);
+  revalidateDashboardCaches(["core", "preview", "publicInvitation"]);
 
   return {
     success: "Pengaturan invitation berhasil diperbarui.",
@@ -515,7 +535,7 @@ export async function addGuestAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
-  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview", "invitationSummary"]);
+  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview"]);
 
   return {
     success: `Tamu berhasil ditambahkan. Link tamu siap di ${getPublicInvitationPath(invitation.coupleSlug, {
@@ -576,7 +596,7 @@ export async function updateGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
-  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview", "invitationSummary"]);
+  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview"]);
 }
 
 export async function deleteGuestAction(formData: FormData) {
@@ -599,7 +619,7 @@ export async function deleteGuestAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/preview");
   revalidatePath("/dashboard/send");
-  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview", "invitationSummary"]);
+  revalidateDashboardCaches(["overview", "guests", "send", "rsvp", "analytics", "preview"]);
 }
 
 export async function logManualSendAction(formData: FormData) {
@@ -649,5 +669,5 @@ export async function logManualSendAction(formData: FormData) {
 
   revalidatePath("/dashboard/send");
   revalidatePath("/admin/send-logs");
-  revalidateDashboardCaches(["send", "invitationSummary"]);
+  revalidateDashboardCaches(["send"]);
 }

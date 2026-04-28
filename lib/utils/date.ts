@@ -40,9 +40,28 @@ export function formatAdminDateTime(value: string | Date) {
   return adminDateTimeFormatter.format(new Date(value));
 }
 
-export function toDateTimeLocalValue(date: Date) {
-  const timezoneOffset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+export function formatDateTimeInputValue(
+  value: string | Date,
+  timeZone = "Asia/Jakarta",
+) {
+  const date = new Date(value);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
 export function getCountdownParts(value?: string | null) {

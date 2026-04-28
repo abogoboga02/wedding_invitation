@@ -1,5 +1,4 @@
 import type {
-  PostgrestMaybeSingleResponse,
   PostgrestResponse,
   SupabaseClient,
 } from "@supabase/supabase-js";
@@ -7,6 +6,7 @@ import { unstable_cache } from "next/cache";
 
 import { normalizeTemplateConfig } from "@/features/invitation/form/config";
 import { buildGeneratedInvitationCopy } from "@/features/invitation/generated-copy";
+import { setupEventFieldGroups } from "@/features/invitation/invitation.schema";
 import type { InvitationTemplate, InvitationStatus, RsvpStatus } from "@/lib/domain/types";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Database, Json, TableRow } from "@/lib/supabase/database.types";
@@ -28,29 +28,9 @@ type GuestRow = TableRow<"guests">;
 type RsvpRow = TableRow<"rsvps">;
 type WishRow = TableRow<"wishes">;
 
-type InvitationRelationsRow = InvitationRow & {
-  invitation_settings?: InvitationSettingRow | InvitationSettingRow[] | null;
-  event_slots?: EventSlotRow[] | null;
-  gallery_images?: GalleryImageRow[] | null;
-};
-
 type GuestWithResponsesRow = GuestRow & {
   rsvps?: RsvpRow | RsvpRow[] | null;
   wishes?: WishRow | WishRow[] | null;
-};
-
-type DashboardInvitationSummaryRow = InvitationRow & {
-  invitation_settings?: InvitationSettingRow | InvitationSettingRow[] | null;
-  event_slots?: EventSlotRow[] | null;
-  gallery_images?: GalleryImageRow[] | null;
-  guests?:
-    | Array<
-        GuestRow & {
-          rsvps?: RsvpRow | RsvpRow[] | null;
-          wishes?: WishRow | WishRow[] | null;
-        }
-      >
-    | null;
 };
 
 const INVITATION_BASE_SELECT = `
@@ -81,79 +61,6 @@ const INVITATION_BASE_SELECT = `
   updated_at
 `;
 
-const DASHBOARD_INVITATION_SUMMARY_SELECT = `
-  ${INVITATION_BASE_SELECT},
-  invitation_settings (
-    id,
-    invitation_id,
-    locale,
-    timezone,
-    is_rsvp_enabled,
-    is_wish_enabled,
-    auto_play_music,
-    preferred_send_channel,
-    created_at,
-    updated_at
-  ),
-  event_slots (
-    id,
-    invitation_id,
-    label,
-    starts_at,
-    venue_name,
-    address,
-    maps_url,
-    latitude,
-    longitude,
-    place_name,
-    formatted_address,
-    google_maps_url,
-    sort_order,
-    created_at,
-    updated_at
-  ),
-  gallery_images (
-    id,
-    invitation_id,
-    image_url,
-    storage_path,
-    alt_text,
-    sort_order,
-    created_at
-  ),
-  guests (
-    id,
-    invitation_id,
-    name,
-    guest_slug,
-    phone,
-    email,
-    source,
-    created_at,
-    updated_at,
-    rsvps (
-      id,
-      guest_id,
-      respondent_name,
-      status,
-      attendees,
-      note,
-      responded_at,
-      updated_at
-    ),
-    wishes (
-      id,
-      invitation_id,
-      guest_id,
-      message,
-      is_approved,
-      created_at,
-      updated_at
-    )
-  )
-`;
-
-const DASHBOARD_INVITATION_SUMMARY_CACHE_TAG = "dashboard-invitation-summary";
 const DASHBOARD_CORE_CACHE_TAG = "dashboard-core";
 const DASHBOARD_OVERVIEW_CACHE_TAG = "dashboard-overview";
 const DASHBOARD_MEDIA_CACHE_TAG = "dashboard-media";
@@ -349,8 +256,13 @@ export type DashboardInvitationGuest = GuestRecord & {
   wish: WishRecord | null;
 };
 
-export type DashboardInvitationSummary = InvitationWithRelations & {
-  guests: DashboardInvitationGuest[];
+export type InvitationRenderGuest = {
+  id: string;
+  name: string;
+  guestSlug: string;
+  phone: string | null;
+  rsvp: Pick<RsvpRecord, "respondentName" | "status" | "attendees" | "note"> | null;
+  wish: Pick<WishRecord, "message"> | null;
 };
 
 export type PublicWish = {
@@ -365,7 +277,6 @@ export type DashboardAnalyticsSummary = {
   totalPersonalLinks: number;
   totalRsvps: number;
   totalInvitationOpens: number;
-  uniqueGuestOpens: number;
   rsvpBreakdown: {
     attending: number;
     declined: number;
@@ -415,6 +326,14 @@ export type DashboardInvitationPreview = InvitationWithRelations & {
   approvedWishes: PublicWish[];
 };
 
+export type DashboardInvitationPublishSnapshot = Pick<
+  InvitationRecord,
+  "id" | "template" | "partnerOneName" | "partnerTwoName" | "coupleSlug"
+> & {
+  eventSlots: EventSlotRecord[];
+  guestCount: number;
+};
+
 export type DashboardSendSummary = {
   sentGuests: number;
   pendingGuests: number;
@@ -439,6 +358,19 @@ function addDays(date: Date, days: number) {
   const clonedDate = new Date(date);
   clonedDate.setDate(clonedDate.getDate() + days);
   return clonedDate;
+}
+
+function toIsoString(value?: string | Date | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const parsedDate = new Date(value);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString();
+  }
+
+  return Number.isNaN(value.getTime()) ? null : value.toISOString();
 }
 
 function getDefaultTemplateConfig(template: InvitationTemplate) {
@@ -561,24 +493,6 @@ function mapWishRow(row: WishRow): WishRecord {
   };
 }
 
-function mapInvitationRelationsRow(row: InvitationRelationsRow): InvitationWithRelations {
-  const invitation = mapInvitationRow(row);
-  const settingRow = firstEmbeddedRow(row.invitation_settings);
-  const eventSlots = embeddedRows(row.event_slots)
-    .map(mapEventSlotRow)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
-  const galleryImages = embeddedRows(row.gallery_images)
-    .map(mapGalleryImageRow)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
-
-  return {
-    ...invitation,
-    setting: settingRow ? mapInvitationSettingRow(settingRow) : null,
-    eventSlots,
-    galleryImages,
-  };
-}
-
 function mapGuestWithResponsesRow(row: GuestWithResponsesRow): DashboardInvitationGuest {
   const rsvpRow = firstEmbeddedRow(row.rsvps);
   const wishRow = firstEmbeddedRow(row.wishes);
@@ -596,28 +510,6 @@ function firstEmbeddedRow<T>(value?: T | T[] | null) {
   }
 
   return value ?? null;
-}
-
-function embeddedRows<T>(value?: T | T[] | null) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  return value ? [value] : [];
-}
-
-function mapDashboardInvitationSummaryRow(
-  row: DashboardInvitationSummaryRow,
-): DashboardInvitationSummary {
-  const invitation = mapInvitationRelationsRow(row);
-  const guests = embeddedRows(row.guests)
-    .map(mapGuestWithResponsesRow)
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
-
-  return {
-    ...invitation,
-    guests,
-  };
 }
 
 async function resolveServerClient(client?: SupabaseDbClient) {
@@ -1248,7 +1140,6 @@ const getCachedDashboardAnalyticsSummary = unstable_cache(
       declinedResult,
       maybeResult,
       totalInvitationOpensResult,
-      viewLogs,
     ] = await Promise.all([
       adminClient
         .from("guests")
@@ -1277,13 +1168,6 @@ const getCachedDashboardAnalyticsSummary = unstable_cache(
         .from("invitation_view_logs")
         .select("id", { count: "exact", head: true })
         .eq("invitation_id", invitation.id),
-      unwrapList<Pick<TableRow<"invitation_view_logs">, "guest_id">>(
-        await adminClient
-          .from("invitation_view_logs")
-          .select("guest_id")
-          .eq("invitation_id", invitation.id),
-        "Gagal mengambil log pembukaan invitation.",
-      ),
     ]);
 
     if (guestCountResult.error) {
@@ -1304,7 +1188,6 @@ const getCachedDashboardAnalyticsSummary = unstable_cache(
       totalPersonalLinks: guestCountResult.count ?? 0,
       totalRsvps: totalRsvpResult.count ?? 0,
       totalInvitationOpens: totalInvitationOpensResult.count ?? 0,
-      uniqueGuestOpens: new Set(viewLogs.map((row) => row.guest_id)).size,
       rsvpBreakdown: {
         attending: attendingResult.count ?? 0,
         declined: declinedResult.count ?? 0,
@@ -1318,24 +1201,47 @@ const getCachedDashboardAnalyticsSummary = unstable_cache(
   },
 );
 
-const getCachedDashboardInvitationSummary = unstable_cache(
+async function buildDashboardInvitationPublishSnapshot(
+  userId: string,
+  client: SupabaseDbClient,
+): Promise<DashboardInvitationPublishSnapshot | null> {
+  const invitation = await getInvitationBaseByOwnerId(userId, client);
+
+  if (!invitation) {
+    return null;
+  }
+
+  const [eventSlots, guestCountResult] = await Promise.all([
+    getInvitationEventSlotsByInvitationId(invitation.id, client),
+    client
+      .from("guests")
+      .select("id", { count: "exact", head: true })
+      .eq("invitation_id", invitation.id),
+  ]);
+
+  if (guestCountResult.error) {
+    throw new Error("Gagal menghitung jumlah tamu invitation untuk proses publish.");
+  }
+
+  return {
+    id: invitation.id,
+    template: invitation.template,
+    partnerOneName: invitation.partnerOneName,
+    partnerTwoName: invitation.partnerTwoName,
+    coupleSlug: invitation.coupleSlug,
+    eventSlots,
+    guestCount: guestCountResult.count ?? 0,
+  } satisfies DashboardInvitationPublishSnapshot;
+}
+
+const getCachedDashboardInvitationPublishSnapshot = unstable_cache(
   async (cacheUserId: string) => {
     const adminClient = resolveAdminClient();
-    const response = await adminClient
-      .from("invitations")
-      .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
-      .eq("owner_id", cacheUserId)
-      .maybeSingle();
-    const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
-      response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
-      "Gagal mengambil ringkasan invitation.",
-    );
-
-    return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+    return buildDashboardInvitationPublishSnapshot(cacheUserId, adminClient);
   },
-  ["invitation-summary-by-user"],
+  ["dashboard-invitation-publish"],
   {
-    tags: [DASHBOARD_INVITATION_SUMMARY_CACHE_TAG],
+    tags: [DASHBOARD_CORE_CACHE_TAG, DASHBOARD_OVERVIEW_CACHE_TAG, DASHBOARD_GUESTS_CACHE_TAG],
   },
 );
 
@@ -1371,27 +1277,20 @@ export async function getDashboardInvitationPreview(userId: string) {
   return getCachedDashboardInvitationPreview(userId);
 }
 
-export async function getDashboardInvitationSummary(userId: string, client?: SupabaseDbClient) {
+export async function getDashboardInvitationPublishSnapshot(
+  userId: string,
+  client?: SupabaseDbClient,
+) {
   if (client) {
-    const response = await client
-      .from("invitations")
-      .select(DASHBOARD_INVITATION_SUMMARY_SELECT)
-      .eq("owner_id", userId)
-      .maybeSingle();
-    const invitation = await unwrapMaybeSingle<DashboardInvitationSummaryRow>(
-      response as unknown as PostgrestMaybeSingleResponse<DashboardInvitationSummaryRow>,
-      "Gagal mengambil ringkasan invitation.",
-    );
-
-    return invitation ? mapDashboardInvitationSummaryRow(invitation) : null;
+    return buildDashboardInvitationPublishSnapshot(userId, client);
   }
 
-  return getCachedDashboardInvitationSummary(userId);
+  return getCachedDashboardInvitationPublishSnapshot(userId);
 }
 
 export function mapInvitationToRenderModel(
   invitation: InvitationWithRelations,
-  guest?: DashboardInvitationGuest | null,
+  guest?: InvitationRenderGuest | null,
   wishes: PublicWish[] = [],
 ): InvitationRenderModel {
   const templateSlug = getInvitationTemplateSlug(invitation.template);
@@ -1402,6 +1301,9 @@ export function mapInvitationToRenderModel(
     partnerTwoName: invitation.partnerTwoName,
     config: templateConfig,
   });
+  const eventTimeLabels = setupEventFieldGroups.map(
+    (group) => templateConfig.schedule.eventTimeLabels[group.key].trim() || null,
+  );
 
   return {
     id: invitation.id,
@@ -1422,7 +1324,7 @@ export function mapInvitationToRenderModel(
     musicUrl: invitation.musicUrl,
     musicOriginalName: invitation.musicOriginalName,
     musicMimeType: invitation.musicMimeType,
-    publishedAt: invitation.publishedAt?.toISOString() ?? null,
+    publishedAt: toIsoString(invitation.publishedAt),
     isRsvpEnabled: invitation.setting?.isRsvpEnabled ?? true,
     isWishEnabled: invitation.setting?.isWishEnabled ?? true,
     autoPlayMusic: invitation.setting?.autoPlayMusic ?? true,
@@ -1443,10 +1345,13 @@ export function mapInvitationToRenderModel(
           message: guest.wish.message,
         }
       : null,
-    events: invitation.eventSlots.map((eventSlot) => ({
+    events: invitation.eventSlots.map((eventSlot, index) => ({
       id: eventSlot.id,
       label: eventSlot.label,
-      startsAt: eventSlot.startsAt.toISOString(),
+      startsAt:
+        toIsoString(eventSlot.startsAt) ??
+        (typeof eventSlot.startsAt === "string" ? eventSlot.startsAt : ""),
+      timeLabel: eventTimeLabels[index] ?? null,
       venueName: eventSlot.placeName ?? eventSlot.venueName,
       address: eventSlot.formattedAddress ?? eventSlot.address,
       placeName: eventSlot.placeName,
@@ -1530,12 +1435,7 @@ export async function getDashboardSendSummary(
 
 export async function getDashboardAnalyticsSummary(
   userId: string,
-  client?: SupabaseDbClient,
-  existingInvitation?: DashboardInvitationSummary | null,
 ): Promise<DashboardAnalyticsSummary | null> {
-  void client;
-  void existingInvitation;
-
   return getCachedDashboardAnalyticsSummary(userId);
 }
 
@@ -1547,7 +1447,6 @@ export const dashboardCacheTags = {
   send: DASHBOARD_SEND_CACHE_TAG,
   rsvp: DASHBOARD_RSVP_CACHE_TAG,
   preview: DASHBOARD_PREVIEW_CACHE_TAG,
-  invitationSummary: DASHBOARD_INVITATION_SUMMARY_CACHE_TAG,
   analytics: DASHBOARD_ANALYTICS_CACHE_TAG,
   publicInvitation: PUBLIC_INVITATION_CACHE_TAG,
 } as const;

@@ -96,7 +96,7 @@ export default async function DashboardPage() {
     {
       id: "media",
       label: "Upload media",
-      description: "Cover, galeri, atau musik pembuka sudah tersedia.",
+      description: "Galeri foto atau musik pembuka sudah tersedia.",
       href: "/dashboard/media",
       isComplete: Boolean(
         invitation.coverImage || invitation.galleryImageCount > 0 || invitation.musicUrl,
@@ -403,7 +403,7 @@ export default async function DashboardPage() {
             {
               href: "/dashboard/media",
               title: "Upload media",
-              body: "Tambahkan cover, galeri foto, dan musik pembuka supaya undangan terasa hidup.",
+              body: "Tambahkan batch galeri foto dan lagu pembuka supaya undangan terasa hidup.",
             },
             {
               href: "/dashboard/guests",

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 
+import { resolveInvitationLeadImage } from "@/features/invitation/display";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { TableRow } from "@/lib/supabase/database.types";
 import { unwrapList, unwrapMaybeSingle } from "@/lib/supabase/helpers";
@@ -11,8 +12,8 @@ import {
   dashboardCacheTags,
   mapInvitationToRenderModel,
   trackInvitationOpen,
-  type DashboardInvitationGuest,
   type InvitationRecord,
+  type InvitationRenderGuest,
   type InvitationWithRelations,
   type PublicWish,
 } from "./invitation.service";
@@ -31,9 +32,18 @@ type PublicInvitationShellRow = InvitationRow & {
   gallery_images?: GalleryImageRow[] | null;
 };
 
-type PublicInvitationGuestRow = GuestRow & {
-  rsvps?: RsvpRow | RsvpRow[] | null;
-  wishes?: WishRow | WishRow[] | null;
+type PublicInvitationGuestRow = Pick<
+  GuestRow,
+  "id" | "invitation_id" | "name" | "guest_slug" | "phone"
+> & {
+  rsvps?:
+    | Pick<RsvpRow, "respondent_name" | "status" | "attendees" | "note">
+    | Array<Pick<RsvpRow, "respondent_name" | "status" | "attendees" | "note">>
+    | null;
+  wishes?:
+    | Pick<WishRow, "message">
+    | Array<Pick<WishRow, "message">>
+    | null;
 };
 
 export type PublicInvitationMetadata = Pick<
@@ -49,7 +59,7 @@ export type PublicInvitationMetadata = Pick<
 
 type PublicInvitationRouteContext = {
   invitation: InvitationWithRelations;
-  guest: DashboardInvitationGuest | null;
+  guest: InvitationRenderGuest | null;
   approvedWishes: PublicWish[];
 };
 
@@ -134,28 +144,14 @@ const PUBLIC_INVITATION_GUEST_SELECT = `
   name,
   guest_slug,
   phone,
-  email,
-  source,
-  created_at,
-  updated_at,
   rsvps (
-    id,
-    guest_id,
     respondent_name,
     status,
     attendees,
-    note,
-    responded_at,
-    updated_at
+    note
   ),
   wishes (
-    id,
-    invitation_id,
-    guest_id,
-    message,
-    is_approved,
-    created_at,
-    updated_at
+    message
   )
 `;
 
@@ -257,41 +253,26 @@ function mapInvitationShellRow(row: PublicInvitationShellRow): InvitationWithRel
   };
 }
 
-function mapGuestRow(row: PublicInvitationGuestRow): DashboardInvitationGuest {
+function mapGuestRow(row: PublicInvitationGuestRow): InvitationRenderGuest {
   const rsvp = firstEmbeddedRow(row.rsvps);
   const wish = firstEmbeddedRow(row.wishes);
 
   return {
     id: row.id,
-    invitationId: row.invitation_id,
     name: row.name,
     guestSlug: row.guest_slug,
     phone: row.phone,
-    email: row.email,
-    source: row.source,
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
     rsvp: rsvp
       ? {
-          id: rsvp.id,
-          guestId: rsvp.guest_id,
           respondentName: rsvp.respondent_name,
           status: rsvp.status,
           attendees: rsvp.attendees,
           note: rsvp.note,
-          respondedAt: new Date(rsvp.responded_at),
-          updatedAt: new Date(rsvp.updated_at),
         }
       : null,
     wish: wish
       ? {
-          id: wish.id,
-          invitationId: wish.invitation_id,
-          guestId: wish.guest_id,
           message: wish.message,
-          isApproved: wish.is_approved,
-          createdAt: new Date(wish.created_at),
-          updatedAt: new Date(wish.updated_at),
         }
       : null,
   };
@@ -300,14 +281,23 @@ function mapGuestRow(row: PublicInvitationGuestRow): DashboardInvitationGuest {
 function toPublicInvitationMetadata(
   invitation: InvitationWithRelations,
 ): PublicInvitationMetadata {
+  const leadImage = resolveInvitationLeadImage({
+    invitationId: invitation.id,
+    partnerOneName: invitation.partnerOneName,
+    partnerTwoName: invitation.partnerTwoName,
+    coverImage: invitation.coverImage,
+    coverImageAlt: invitation.coverImageAlt,
+    galleryImages: invitation.galleryImages,
+  });
+
   return {
     coupleSlug: invitation.coupleSlug,
     partnerOneName: invitation.partnerOneName,
     partnerTwoName: invitation.partnerTwoName,
     headline: invitation.headline,
     subheadline: invitation.subheadline,
-    coverImage: invitation.coverImage,
-    coverImageAlt: invitation.coverImageAlt,
+    coverImage: leadImage?.url ?? null,
+    coverImageAlt: leadImage?.altText ?? null,
   };
 }
 

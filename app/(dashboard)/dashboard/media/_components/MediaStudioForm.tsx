@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo } from "react";
+import { useActionState, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import type { InvitationTemplateConfigValues } from "@/features/invitation/form/config";
@@ -12,9 +12,6 @@ import { MusicPresetPicker } from "./MusicPresetPicker";
 
 type MediaStudioFormProps = {
   templateConfig: InvitationTemplateConfigValues;
-  coverImage: string | null;
-  coverImageAlt: string | null;
-  coverImageStoragePath: string | null;
   galleryImages: Array<{ imageUrl: string; storagePath?: string | null }>;
   musicUrl: string | null;
   musicOriginalName: string | null;
@@ -27,9 +24,6 @@ const initialState: DashboardActionState = {};
 
 export function MediaStudioForm({
   templateConfig,
-  coverImage,
-  coverImageAlt,
-  coverImageStoragePath,
   galleryImages,
   musicUrl,
   musicOriginalName,
@@ -38,10 +32,6 @@ export function MediaStudioForm({
   musicStoragePath,
 }: MediaStudioFormProps) {
   const [state, formAction] = useActionState(saveMediaInvitationAction, initialState);
-  const initialCoverAssets = useMemo(
-    () => (coverImage ? [{ url: coverImage, storagePath: coverImageStoragePath ?? undefined }] : []),
-    [coverImage, coverImageStoragePath],
-  );
   const initialGalleryAssets = useMemo(
     () =>
       galleryImages.map((image) => ({
@@ -72,6 +62,7 @@ export function MediaStudioForm({
       templateConfig.music.source,
     ],
   );
+  const [hasManualUpload, setHasManualUpload] = useState(initialMusicAssets.length > 0);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -87,31 +78,9 @@ export function MediaStudioForm({
       ) : null}
 
       <MediaUploader
-        label="Cover Undangan"
-        helperText="Unggah satu gambar utama untuk hero undangan."
-        name="coverImage"
-        kind="cover"
-        initialAssets={initialCoverAssets}
-        metadataFieldNames={{
-          storagePath: "coverImageStoragePath",
-        }}
-      />
-
-      <label className="block space-y-2 rounded-[2rem] border border-[var(--color-border)] bg-white p-5">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">
-          Alt text cover
-        </span>
-        <input
-          name="coverImageAlt"
-          defaultValue={coverImageAlt ?? ""}
-          className="w-full rounded-[1.3rem] border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary-strong)]"
-          placeholder="Contoh: Potret editorial pasangan di taman"
-        />
-      </label>
-
-      <MediaUploader
-        label="Galeri Pasangan"
-        helperText="Unggah beberapa foto inti untuk membuat undangan terasa lebih personal."
+        compact
+        label="Galeri pasangan"
+        helperText="Unggah batch foto pasangan langsung di sini. Template akan memilih visual pembuka otomatis dari galeri yang tersedia, jadi Anda tidak perlu mengatur hero atau cover terpisah."
         name="galleryImages"
         kind="gallery"
         multiple
@@ -121,24 +90,58 @@ export function MediaStudioForm({
         }}
       />
 
-      <MediaUploader
-        label="Lagu Pembuka"
-        helperText="Unggah satu file audio ringan bila ingin memakai lagu sendiri. Jika tidak, Anda bisa memilih preset playlist bawaan."
-        name="musicUrl"
-        kind="music"
-        initialAssets={initialMusicAssets}
-        metadataFieldNames={{
-          originalName: "musicOriginalName",
-          mimeType: "musicMimeType",
-          size: "musicSize",
-          storagePath: "musicStoragePath",
-        }}
-      />
+      <section className="space-y-5 rounded-[2rem] border border-[var(--color-border)] bg-[var(--color-surface-alt)]/70 p-5">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+            Daftar playlist pembuka
+          </h3>
+          <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+            Pilih preset yang paling cocok, atau gunakan kartu tanpa preset untuk upload lagu
+            sendiri. Bila file upload tersedia, lagu itu akan otomatis diprioritaskan.
+          </p>
+        </div>
 
-      <MusicPresetPicker
-        defaultMood={templateConfig.music.mood}
-        defaultPresetId={templateConfig.music.source === "preset" ? templateConfig.music.presetId : ""}
-      />
+        <div className="rounded-[1.6rem] border border-[var(--color-border)] bg-white p-4">
+          <div className="mb-4 space-y-1">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+              Pilih playlist template
+            </p>
+            <p className="text-xs leading-6 text-[var(--color-text-secondary)]">
+              Upload manual sekarang ada di kartu &quot;Tanpa preset&quot; agar seluruh opsi lagu tetap
+              berada dalam satu area yang lebih ringkas.
+            </p>
+          </div>
+
+          <MusicPresetPicker
+            embedded
+            defaultMood={templateConfig.music.mood}
+            defaultPresetId={
+              templateConfig.music.source === "preset" ? templateConfig.music.presetId : ""
+            }
+            isManualUploadActive={hasManualUpload}
+            manualUploadSlot={
+              <MediaUploader
+                embedded
+                compact
+                hideHeader
+                hideDropzoneWhenFilled
+                label="Upload lagu sendiri"
+                helperText="Opsional. Cocok jika pasangan sudah punya satu lagu pembuka khusus."
+                name="musicUrl"
+                kind="music"
+                initialAssets={initialMusicAssets}
+                metadataFieldNames={{
+                  originalName: "musicOriginalName",
+                  mimeType: "musicMimeType",
+                  size: "musicSize",
+                  storagePath: "musicStoragePath",
+                }}
+                onAssetsChange={(assets) => setHasManualUpload(assets.length > 0)}
+              />
+            }
+          />
+        </div>
+      </section>
 
       <SubmitButton
         pendingLabel="Menyimpan media..."

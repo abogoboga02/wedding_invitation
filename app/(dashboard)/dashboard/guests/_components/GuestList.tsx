@@ -79,12 +79,6 @@ export function GuestList({ coupleSlug, guests }: GuestListProps) {
                     placeholder="Nomor WhatsApp"
                     className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
                   />
-                  <input
-                    name="email"
-                    defaultValue={guest.email ?? ""}
-                    placeholder="Email"
-                    className="rounded-2xl border border-stone-300 px-4 py-3 text-sm"
-                  />
                   <SubmitButton
                     pendingLabel="Menyimpan..."
                     className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700"

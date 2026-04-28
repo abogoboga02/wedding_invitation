@@ -1,5 +1,8 @@
+import { unstable_cache } from "next/cache";
+
 import { TEMPLATE_OPTIONS } from "@/lib/constants/invitation";
 import type { PlanTier } from "@/lib/domain/types";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { unwrapList } from "@/lib/supabase/helpers";
 
@@ -18,36 +21,47 @@ export type PricingOrderInput = {
   templateId: string;
 };
 
-export async function getTemplatePricingCatalog(): Promise<TemplatePricingCatalogItem[]> {
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("templates")
-    .select(
-      "template_id, template_name, template_slug, template_category, template_preview, template_price, is_premium",
-    )
-    .order("template_name", { ascending: true });
-
-  if (error || !data || data.length === 0) {
-    return TEMPLATE_OPTIONS.map((template) => ({
-      id: template.id,
-      name: template.label,
-      slug: template.slug,
-      category: template.category,
-      preview: template.previewImage,
-      priceInIdr: template.priceInIdr,
-      isPremium: template.isPremium,
-    }));
-  }
-
-  return data.map((template) => ({
-    id: template.template_id,
-    name: template.template_name,
-    slug: template.template_slug,
-    category: template.template_category,
-    preview: template.template_preview,
-    priceInIdr: template.template_price,
-    isPremium: template.is_premium,
+function getFallbackTemplatePricingCatalog(): TemplatePricingCatalogItem[] {
+  return TEMPLATE_OPTIONS.map((template) => ({
+    id: template.id,
+    name: template.label,
+    slug: template.slug,
+    category: template.category,
+    preview: template.previewImage,
+    priceInIdr: template.priceInIdr,
+    isPremium: template.isPremium,
   }));
+}
+
+const getCachedTemplatePricingCatalog = unstable_cache(
+  async (): Promise<TemplatePricingCatalogItem[]> => {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("templates")
+      .select(
+        "template_id, template_name, template_slug, template_category, template_preview, template_price, is_premium",
+      )
+      .order("template_name", { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      return getFallbackTemplatePricingCatalog();
+    }
+
+    return data.map((template) => ({
+      id: template.template_id,
+      name: template.template_name,
+      slug: template.template_slug,
+      category: template.template_category,
+      preview: template.template_preview,
+      priceInIdr: template.template_price,
+      isPremium: template.is_premium,
+    }));
+  },
+  ["template-pricing-catalog"],
+);
+
+export async function getTemplatePricingCatalog(): Promise<TemplatePricingCatalogItem[]> {
+  return getCachedTemplatePricingCatalog();
 }
 
 export async function createTemplateBasedPaymentOrder(

@@ -46,6 +46,18 @@ export type TemplateConfigFieldValue = string | boolean;
 
 export type InvitationGiftEntryType = "bank" | "ewallet";
 export type InvitationMusicSource = "preset" | "upload";
+export type InvitationSocialPlatform = "instagram" | "tiktok";
+export type InvitationEventTimeLabelsConfig = {
+  eventOne: string;
+  eventTwo: string;
+  eventThree: string;
+};
+
+export type InvitationPartnerProfileConfig = {
+  parentLine: string;
+  socialPlatform: InvitationSocialPlatform | "";
+  socialHandle: string;
+};
 
 export type InvitationGiftEntry = {
   type: InvitationGiftEntryType;
@@ -82,12 +94,19 @@ type SharedTemplateConfig<TTheme> = {
       partnerOne: string;
       partnerTwo: string;
     };
+    partnerProfiles: {
+      partnerOne: InvitationPartnerProfileConfig;
+      partnerTwo: InvitationPartnerProfileConfig;
+    };
   };
   loveStory: {
     firstMeeting: string;
     proposal: string;
     wedding: string;
     narrative: string;
+  };
+  schedule: {
+    eventTimeLabels: InvitationEventTimeLabelsConfig;
   };
   gift: {
     enabled: boolean;
@@ -131,12 +150,31 @@ const commonTemplateConfigDefaults = {
       partnerOne: "",
       partnerTwo: "",
     },
+    partnerProfiles: {
+      partnerOne: {
+        parentLine: "",
+        socialPlatform: "",
+        socialHandle: "",
+      },
+      partnerTwo: {
+        parentLine: "",
+        socialPlatform: "",
+        socialHandle: "",
+      },
+    },
   },
   loveStory: {
     firstMeeting: "",
     proposal: "",
     wedding: "",
     narrative: "",
+  },
+  schedule: {
+    eventTimeLabels: {
+      eventOne: "",
+      eventTwo: "",
+      eventThree: "",
+    },
   },
   gift: {
     enabled: false,
@@ -178,6 +216,13 @@ function getStringValue(value: unknown, fallback = "") {
 
 function getBooleanValue(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function getSocialPlatformValue(
+  value: unknown,
+  fallback: InvitationSocialPlatform | "",
+): InvitationSocialPlatform | "" {
+  return value === "instagram" || value === "tiktok" ? value : fallback;
 }
 
 function getGiftEntryValue(
@@ -449,10 +494,25 @@ function getStructuredTemplateDefaults<T extends InvitationTemplate>(
 ): InvitationTemplateConfigMap[T] {
   return {
     copy: {
-      ...commonTemplateConfigDefaults.copy,
+      partnerNicknames: {
+        ...commonTemplateConfigDefaults.copy.partnerNicknames,
+      },
+      partnerProfiles: {
+        partnerOne: {
+          ...commonTemplateConfigDefaults.copy.partnerProfiles.partnerOne,
+        },
+        partnerTwo: {
+          ...commonTemplateConfigDefaults.copy.partnerProfiles.partnerTwo,
+        },
+      },
     },
     loveStory: {
       ...commonTemplateConfigDefaults.loveStory,
+    },
+    schedule: {
+      eventTimeLabels: {
+        ...commonTemplateConfigDefaults.schedule.eventTimeLabels,
+      },
     },
     gift: {
       enabled: commonTemplateConfigDefaults.gift.enabled,
@@ -484,7 +544,20 @@ export function normalizeTemplateConfig<T extends InvitationTemplate>(
   const nicknameSource = isRecord(copySource.partnerNicknames)
     ? copySource.partnerNicknames
     : {};
+  const partnerProfileSource = isRecord(copySource.partnerProfiles)
+    ? copySource.partnerProfiles
+    : {};
+  const partnerOneProfileSource = isRecord(partnerProfileSource.partnerOne)
+    ? partnerProfileSource.partnerOne
+    : {};
+  const partnerTwoProfileSource = isRecord(partnerProfileSource.partnerTwo)
+    ? partnerProfileSource.partnerTwo
+    : {};
   const loveStorySource = isRecord(rawConfig.loveStory) ? rawConfig.loveStory : {};
+  const scheduleSource = isRecord(rawConfig.schedule) ? rawConfig.schedule : {};
+  const eventTimeLabelsSource = isRecord(scheduleSource.eventTimeLabels)
+    ? scheduleSource.eventTimeLabels
+    : {};
   const giftSource = isRecord(rawConfig.gift) ? rawConfig.gift : {};
   const musicSource = isRecord(rawConfig.music) ? rawConfig.music : {};
   const themeSource = isRecord(rawConfig.theme) ? rawConfig.theme : rawConfig;
@@ -518,6 +591,36 @@ export function normalizeTemplateConfig<T extends InvitationTemplate>(
           defaults.copy.partnerNicknames.partnerTwo,
         ),
       },
+      partnerProfiles: {
+        partnerOne: {
+          parentLine: getStringValue(
+            partnerOneProfileSource.parentLine,
+            defaults.copy.partnerProfiles.partnerOne.parentLine,
+          ),
+          socialPlatform: getSocialPlatformValue(
+            partnerOneProfileSource.socialPlatform,
+            defaults.copy.partnerProfiles.partnerOne.socialPlatform,
+          ),
+          socialHandle: getStringValue(
+            partnerOneProfileSource.socialHandle,
+            defaults.copy.partnerProfiles.partnerOne.socialHandle,
+          ),
+        },
+        partnerTwo: {
+          parentLine: getStringValue(
+            partnerTwoProfileSource.parentLine,
+            defaults.copy.partnerProfiles.partnerTwo.parentLine,
+          ),
+          socialPlatform: getSocialPlatformValue(
+            partnerTwoProfileSource.socialPlatform,
+            defaults.copy.partnerProfiles.partnerTwo.socialPlatform,
+          ),
+          socialHandle: getStringValue(
+            partnerTwoProfileSource.socialHandle,
+            defaults.copy.partnerProfiles.partnerTwo.socialHandle,
+          ),
+        },
+      },
     },
     loveStory: {
       firstMeeting: getStringValue(
@@ -527,6 +630,22 @@ export function normalizeTemplateConfig<T extends InvitationTemplate>(
       proposal: getStringValue(loveStorySource.proposal, defaults.loveStory.proposal),
       wedding: getStringValue(loveStorySource.wedding, defaults.loveStory.wedding),
       narrative: getStringValue(loveStorySource.narrative, defaults.loveStory.narrative),
+    },
+    schedule: {
+      eventTimeLabels: {
+        eventOne: getStringValue(
+          eventTimeLabelsSource.eventOne,
+          defaults.schedule.eventTimeLabels.eventOne,
+        ),
+        eventTwo: getStringValue(
+          eventTimeLabelsSource.eventTwo,
+          defaults.schedule.eventTimeLabels.eventTwo,
+        ),
+        eventThree: getStringValue(
+          eventTimeLabelsSource.eventThree,
+          defaults.schedule.eventTimeLabels.eventThree,
+        ),
+      },
     },
     gift: {
       enabled: getBooleanValue(giftSource.enabled, defaults.gift.enabled),
@@ -588,6 +707,11 @@ function readOptionalText(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
 }
 
+function readOptionalSocialPlatform(formData: FormData, name: string) {
+  const value = String(formData.get(name) ?? "").trim();
+  return value === "instagram" || value === "tiktok" ? value : "";
+}
+
 export function buildTemplateConfigFromSetupForm<T extends InvitationTemplate>(
   template: T,
   rawConfig: unknown,
@@ -621,12 +745,33 @@ export function buildTemplateConfigFromSetupForm<T extends InvitationTemplate>(
 
   return {
     ...normalized,
-    copy: normalized.copy,
+    copy: {
+      ...normalized.copy,
+      partnerProfiles: {
+        partnerOne: {
+          parentLine: readOptionalText(formData, "partnerOneParentLine"),
+          socialPlatform: readOptionalSocialPlatform(formData, "partnerOneSocialPlatform"),
+          socialHandle: readOptionalText(formData, "partnerOneSocialHandle"),
+        },
+        partnerTwo: {
+          parentLine: readOptionalText(formData, "partnerTwoParentLine"),
+          socialPlatform: readOptionalSocialPlatform(formData, "partnerTwoSocialPlatform"),
+          socialHandle: readOptionalText(formData, "partnerTwoSocialHandle"),
+        },
+      },
+    },
     loveStory: {
       firstMeeting,
       proposal,
       wedding,
       narrative: loveStoryNarrative,
+    },
+    schedule: {
+      eventTimeLabels: {
+        eventOne: readOptionalText(formData, "eventOneTime"),
+        eventTwo: readOptionalText(formData, "eventTwoTime"),
+        eventThree: readOptionalText(formData, "eventThreeTime"),
+      },
     },
     gift: {
       enabled: formData.get("weddingGiftEnabled") === "on",

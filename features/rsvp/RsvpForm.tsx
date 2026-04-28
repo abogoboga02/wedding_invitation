@@ -22,9 +22,15 @@ export function RsvpForm({ invitation }: RsvpFormProps) {
       <input type="hidden" name="guestId" value={invitation.guestId} />
       <input type="hidden" name="coupleSlug" value={invitation.coupleSlug} />
       <input type="hidden" name="guestSlug" value={invitation.guestSlug} />
+      <input
+        type="hidden"
+        name="attendees"
+        value={(invitation.currentRsvp?.attendees ?? 1).toString()}
+      />
+      <input type="hidden" name="note" value={invitation.currentRsvp?.note ?? ""} />
 
       <label className="block space-y-2">
-        <span className="text-sm font-medium text-current/80">Nama Konfirmasi</span>
+        <span className="text-sm font-medium text-current/80">Nama</span>
         <input
           name="respondentName"
           maxLength={100}
@@ -47,30 +53,6 @@ export function RsvpForm({ invitation }: RsvpFormProps) {
             </option>
           ))}
         </select>
-      </label>
-
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-current/80">Jumlah Kehadiran</span>
-        <input
-          type="number"
-          min={1}
-          max={10}
-          name="attendees"
-          defaultValue={invitation.currentRsvp?.attendees ?? 1}
-          className="w-full rounded-2xl border border-current/15 bg-transparent px-4 py-3 text-sm"
-        />
-      </label>
-
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-current/80">Pesan Singkat</span>
-        <textarea
-          name="note"
-          rows={3}
-          maxLength={250}
-          defaultValue={invitation.currentRsvp?.note ?? ""}
-          className="w-full rounded-2xl border border-current/15 bg-transparent px-4 py-3 text-sm"
-          placeholder="Contoh: hadir bersama pasangan / mohon doa dari jauh."
-        />
       </label>
 
       {invitation.isWishEnabled ? (

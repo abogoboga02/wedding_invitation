@@ -43,6 +43,7 @@ export type InvitationRenderModel = {
     id: string;
     label: string;
     startsAt: string;
+    timeLabel?: string | null;
     venueName: string;
     address: string;
     placeName?: string | null;

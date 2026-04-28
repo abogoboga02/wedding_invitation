@@ -61,7 +61,20 @@ export function CoupleProfiles({ profiles, theme }: CoupleProfilesProps) {
             {profile.nickname ? `Dipanggil ${profile.nickname}` : "Mempelai"}
           </p>
           <h3 className="mt-3 text-2xl font-semibold">{profile.fullName}</h3>
+          {profile.parentLine ? (
+            <p className={`mt-3 text-sm leading-7 ${theme.muted}`}>{profile.parentLine}</p>
+          ) : null}
           <p className={`mt-4 text-sm leading-7 ${theme.muted}`}>{profile.bio}</p>
+          {profile.social ? (
+            <Link
+              href={profile.social.href}
+              target="_blank"
+              rel="noreferrer"
+              className={`mt-4 inline-flex text-sm font-semibold ${theme.accent}`}
+            >
+              {profile.social.platform === "instagram" ? "Instagram" : "TikTok"} {profile.social.label}
+            </Link>
+          ) : null}
         </article>
       ))}
     </div>
@@ -93,6 +106,7 @@ export function EventDetailCards({
     <div className="space-y-4">
       {eventDetails.events.map((event) => {
         const schedule = formatEventDateTime(event.startsAt);
+        const resolvedTimeLabel = event.timeLabel?.trim() || schedule.time;
         const locationUrl = event.googleMapsUrl ?? event.mapsUrl;
 
         return (
@@ -103,7 +117,7 @@ export function EventDetailCards({
                 <h3 className="mt-2 text-xl font-semibold">{event.label}</h3>
               </div>
               <div className="sm:text-right">
-                <p className={`text-sm font-semibold ${theme.accent}`}>{schedule.time}</p>
+                <p className={`text-sm font-semibold ${theme.accent}`}>{resolvedTimeLabel}</p>
                 <p className={`mt-1 text-sm ${theme.muted}`}>{schedule.date}</p>
               </div>
             </div>
@@ -159,6 +173,35 @@ export function GalleryGrid({ gallery, couple, theme }: GalleryGridProps) {
             className="object-cover"
           />
         </div>
+      ))}
+    </div>
+  );
+}
+
+type LoveStoryMomentsProps = {
+  loveStory: SharedInvitationTemplateData["sections"]["loveStory"];
+  theme: ThemeClasses;
+};
+
+export function LoveStoryMoments({ loveStory, theme }: LoveStoryMomentsProps) {
+  const moments =
+    loveStory.moments.length > 0
+      ? loveStory.moments
+      : [
+          {
+            id: "story-fallback",
+            title: loveStory.title,
+            narrative: loveStory.narrative,
+          },
+        ];
+
+  return (
+    <div className="space-y-3">
+      {moments.map((moment) => (
+        <article key={moment.id} className={`rounded-[1.4rem] p-4 sm:p-5 ${theme.card}`}>
+          <p className={`text-xs uppercase tracking-[0.24em] ${theme.muted}`}>{moment.title}</p>
+          <p className={`mt-3 text-sm leading-7 ${theme.muted}`}>{moment.narrative}</p>
+        </article>
       ))}
     </div>
   );
