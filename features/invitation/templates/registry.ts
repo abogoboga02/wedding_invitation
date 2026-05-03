@@ -1,6 +1,7 @@
 import { ElegantLuxuryTemplate } from "./elegant-luxury/ElegantLuxuryTemplate";
 import { KoreanSoftTemplate } from "./korean-soft/KoreanSoftTemplate";
 import { ModernMinimalTemplate } from "./modern-minimal/ModernMinimalTemplate";
+import { RoyalMomentsTemplate } from "./royal-moments/RoyalMomentsTemplate";
 import {
   DEFAULT_INVITATION_TEMPLATE,
   getInvitationTemplateBySlug,
@@ -27,6 +28,12 @@ export const templateRegistry: TemplateRegistryItem[] = [
     slug: getInvitationTemplateSlug("MODERN_MINIMAL"),
     label: "Modern Minimal",
     Component: ModernMinimalTemplate,
+  },
+  {
+    id: "ROYAL_MOMENTS",
+    slug: getInvitationTemplateSlug("ROYAL_MOMENTS"),
+    label: "Royal Moments",
+    Component: RoyalMomentsTemplate,
   },
 ];
 

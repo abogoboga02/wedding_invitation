@@ -4,6 +4,7 @@ export const templateSlugMap = {
   ELEGANT_LUXURY: "elegant-luxury",
   KOREAN_SOFT: "korean-soft",
   MODERN_MINIMAL: "modern-minimal",
+  ROYAL_MOMENTS: "royal-moments",
 } as const satisfies Record<InvitationTemplate, string>;
 
 export type InvitationTemplateSlug = (typeof templateSlugMap)[InvitationTemplate];

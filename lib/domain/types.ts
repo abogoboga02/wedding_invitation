@@ -20,6 +20,7 @@ export const INVITATION_TEMPLATES = [
   "ELEGANT_LUXURY",
   "KOREAN_SOFT",
   "MODERN_MINIMAL",
+  "ROYAL_MOMENTS",
 ] as const;
 export type InvitationTemplate = (typeof INVITATION_TEMPLATES)[number];
 
